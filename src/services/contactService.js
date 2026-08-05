@@ -241,3 +241,13 @@ export async function deleteContact(id) {
     throw err;
   }
 }
+
+/**
+ * Formata uma string de CEP (ex: 01310100 -> 01310-100)
+ */
+export function formatCEP(cep) {
+  if (!cep) return '';
+  const clean = cep.replace(/\D/g, '');
+  if (clean.length === 8) return clean.replace(/^(\d{5})(\d{3})/, "$1-$2");
+  return cep;
+}

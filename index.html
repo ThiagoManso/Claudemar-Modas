@@ -3,14 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>CRM Clientes | Claudemar Modas</title>
+    <title>CRM Clientes | Neto Modas</title>
     
-    <!-- Configuração PWA / Web App Instalável (Android & iOS Standalone) -->
+    <!-- Configuração PWA -->
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#0f172a" />
+    <meta name="theme-color" content="#faf8f6" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Claudemar CRM" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Neto Modas CRM" />
     <link rel="apple-touch-icon" href="/icon-192.svg" />
     <meta name="mobile-web-app-capable" content="yes" />
 
@@ -22,27 +22,24 @@
     <!-- Ícone Favicon -->
     <link rel="icon" type="image/svg+xml" href="/icon-192.svg" />
   </head>
-  <body class="theme-dark">
-    <!-- Efeito de Luz / Fundo Dinâmico Glassmorphism -->
-    <div class="bg-glow bg-glow-1"></div>
-    <div class="bg-glow bg-glow-2"></div>
+  <body class="bg-surface text-slate-800 min-h-screen font-sans antialiased selection:bg-brand-200 selection:text-brand-900">
     
-    <!-- Container Principal da Aplicação -->
-    <div id="app" class="app-container">
-      <!-- Inicializando -->
-      <div class="loading-screen">
-        <div class="spinner"></div>
-        <p>Carregando sistema CRM...</p>
+    <!-- Container Principal -->
+    <div id="app" class="flex flex-col min-h-screen">
+      <!-- Tela de Carregamento Inicial -->
+      <div class="loading-screen flex flex-col items-center justify-center fixed inset-0 bg-surface z-50">
+        <div class="w-12 h-12 border-4 border-brand-200 border-t-brand-500 rounded-full animate-spin mb-4"></div>
+        <p class="text-slate-500 font-medium">Carregando Neto Modas...</p>
       </div>
     </div>
 
     <!-- Modais e Notificações (Toast) -->
-    <div id="modal-root" class="modal-root hidden"></div>
-    <div id="toast-root" class="toast-root"></div>
+    <div id="modal-root" class="hidden"></div>
+    <div id="toast-root" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"></div>
 
     <script type="module" src="/src/main.js"></script>
     <script>
-      // Registro do Service Worker para PWA / Instalação na Tela Inicial
+      // Registro do Service Worker para PWA
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js').catch(err => {

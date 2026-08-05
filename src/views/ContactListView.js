@@ -1,165 +1,127 @@
 /**
  * ============================================================================
- * TELA INICIAL DO GESTOR: LISTA RESUMIDA DE CONTATOS / CLIENTES
+ * VIEW DE LISTAGEM DE CONTATOS (TAILWIND REFACTOR)
  * ============================================================================
- * Exibe a base em lista contendo APENAS: Nome, Telefone e Endereço.
- * Clique no nome abre o Modal com todos os detalhes (CPF/RG, Nascimento, etc).
  */
 
-import { openContactModal } from '../components/ContactModal.js';
-import { showToast } from '../components/Toast.js';
+import { formatCEP } from '../services/contactService.js';
+import { renderContactModal } from '../components/ContactModal.js';
 
-export function renderContactListView(contacts) {
-  const totalClients = contacts.length;
-  const recentClients = contacts.filter(c => {
-    const diff = Date.now() - new Date(c.createdAt || Date.now()).getTime();
-    return diff < 86400000 * 7; // últimos 7 dias
-  }).length;
+export function renderContactListView(container, contacts, onDeleteContact) {
+  let searchTerm = '';
+  
+  const updateList = () => {
+    const listContainer = document.getElementById('contacts-grid');
+    if (!listContainer) return;
 
-  return `
-    <div class="view-container">
-      <!-- Cabeçalho Principal -->
-      <div class="view-header">
-        <div class="header-title">
-          <h1>Lista de Clientes</h1>
-          <p>Visão resumida da base (Nome, Telefone e Endereço) • Clique para ver CPF/RG e mais detalhes</p>
-        </div>
+    const filtered = contacts.filter(c => 
+      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.phone.includes(searchTerm)
+    );
 
-        <div class="toolbar">
-          <div class="search-box">
-            <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <input id="search-contacts" type="text" placeholder="Buscar por nome, telefone ou endereço..." />
+    if (filtered.length === 0) {
+      listContainer.innerHTML = `
+        <div class="col-span-full flex flex-col items-center justify-center p-12 text-center bg-white rounded-2xl border border-slate-100 shadow-sm">
+          <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 mb-4">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
           </div>
-          <button id="btn-open-public-link" class="btn btn-secondary">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
-              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
-            </svg>
-            Copiar Link de Cadastro
-          </button>
+          <p class="text-slate-600 font-medium text-lg">Nenhum contato encontrado.</p>
+          <p class="text-slate-400 text-sm mt-1">Tente ajustar os termos da sua pesquisa.</p>
         </div>
-      </div>
+      `;
+      return;
+    }
 
-      <!-- Resumo Estatístico Rápido -->
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-icon blue">👥</div>
-          <div class="stat-content">
-            <h4>${totalClients}</h4>
-            <p>Total de Clientes</p>
+    listContainer.innerHTML = filtered.map(contact => {
+      const isCliente = contact.type === 'cliente';
+      const badgeClass = isCliente 
+        ? 'bg-blue-50 text-blue-700 border-blue-200' 
+        : 'bg-purple-50 text-purple-700 border-purple-200';
+      const typeText = isCliente ? 'Cliente' : 'Fornecedor';
+
+      return `
+        <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md transition-shadow group relative flex flex-col h-full cursor-pointer" data-id="${contact.id}">
+          
+          <div class="flex items-start justify-between mb-4">
+            <div class="flex gap-3 items-center">
+              <div class="w-12 h-12 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center font-display font-bold text-xl">
+                ${contact.name.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <h3 class="text-slate-800 font-bold font-display leading-tight truncate max-w-[150px] sm:max-w-[180px]">${contact.name}</h3>
+                <span class="inline-flex mt-1 items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${badgeClass}">
+                  ${typeText}
+                </span>
+              </div>
+            </div>
+            
+            <a href="https://wa.me/55${contact.phone.replace(/\D/g, '')}" target="_blank" class="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white flex items-center justify-center transition-colors shadow-sm" title="WhatsApp" onclick="event.stopPropagation();">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+            </a>
+          </div>
+
+          <div class="space-y-2 mt-auto">
+            <p class="text-sm text-slate-600 flex items-center gap-2">
+              <svg class="text-slate-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+              ${contact.phone}
+            </p>
+            <p class="text-sm text-slate-600 flex items-center gap-2 truncate" title="${contact.city} - ${contact.state}">
+              <svg class="text-slate-400 flex-shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+              <span class="truncate">${contact.city} - ${contact.state}</span>
+            </p>
           </div>
         </div>
-        <div class="stat-card">
-          <div class="stat-icon green">✨</div>
-          <div class="stat-content">
-            <h4>${recentClients}</h4>
-            <p>Cadastrados (Últimos 7 dias)</p>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon purple">📍</div>
-          <div class="stat-content">
-            <h4>100%</h4>
-            <p>Endereços Integrados com Mapa</p>
-          </div>
-        </div>
-      </div>
+      `;
+    }).join('');
 
-      <!-- Lista / Grid de Contatos Resumidos -->
-      <div id="contacts-list-container" class="contacts-grid">
-        ${contacts.length === 0 ? `
-          <div class="card" style="grid-column: 1 / -1; text-align: center; padding: 48px;">
-            <p style="color: hsl(var(--text-muted)); font-size: 1.1rem;">Nenhum cliente cadastrado até o momento.</p>
-            <a href="#cadastro" class="btn btn-primary btn-sm" style="margin-top: 16px;">Cadastrar Novo Cliente</a>
-          </div>
-        ` : contacts.map(contact => renderContactCard(contact)).join('')}
-      </div>
-    </div>
-  `;
-}
-
-function renderContactCard(contact) {
-  const avatarLetter = (contact.fullName || '?').charAt(0).toUpperCase();
-  return `
-    <div class="card contact-card card-hover" data-id="${contact.id}" title="Clique para visualizar detalhes completos (CPF/RG, Data de Nascimento)">
-      <div class="contact-main">
-        <div class="contact-avatar">${avatarLetter}</div>
-        <div class="contact-name">${contact.fullName || 'Sem nome'}</div>
-        <div class="contact-phone">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-          </svg>
-          ${contact.phone || 'Telefone não informado'}
-        </div>
-        <div class="contact-address">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0; margin-top: 2px;">
-            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-            <circle cx="12" cy="10" r="3"></circle>
-          </svg>
-          <span>${contact.address || 'Endereço não cadastrado'}</span>
-        </div>
-      </div>
-      <div class="contact-footer">
-        <span>Cadastrado em: ${new Date(contact.createdAt || Date.now()).toLocaleDateString('pt-BR')}</span>
-        <span style="color: hsl(var(--accent-cyan)); font-weight: 600;">Abrir Detalhes →</span>
-      </div>
-    </div>
-  `;
-}
-
-export function bindContactListEvents(contacts, onDeleteContact, onCopyPublicLink) {
-  const container = document.getElementById('contacts-list-container');
-  const searchInput = document.getElementById('search-contacts');
-  const copyBtn = document.getElementById('btn-open-public-link');
-
-  if (copyBtn) {
-    copyBtn.addEventListener('click', () => {
-      const publicUrl = window.location.origin + window.location.pathname + '#cadastro';
-      navigator.clipboard?.writeText(publicUrl);
-      showToast('Link público copiado: ' + publicUrl, 'success');
-    });
-  }
-
-  // Evento de clique para abrir o Modal de Detalhes Completo
-  const attachCardListeners = () => {
-    const cards = container?.querySelectorAll('.contact-card');
-    cards?.forEach(card => {
+    // Attach click events to open modal
+    document.querySelectorAll('#contacts-grid > div').forEach(card => {
       card.addEventListener('click', () => {
-        const contactId = card.getAttribute('data-id');
-        const contact = contacts.find(c => c.id === contactId);
+        const id = card.getAttribute('data-id');
+        const contact = contacts.find(c => c.id === id);
         if (contact) {
-          openContactModal(contact, onDeleteContact);
+          renderContactModal(contact, null, onDeleteContact);
         }
       });
     });
   };
 
-  attachCardListeners();
-
-  // Busca em tempo real na lista
-  if (searchInput && container) {
-    searchInput.addEventListener('input', (e) => {
-      const query = e.target.value.trim().toLowerCase();
-      const filtered = contacts.filter(c => {
-        const name = (c.fullName || '').toLowerCase();
-        const phone = (c.phone || '').toLowerCase();
-        const address = (c.address || '').toLowerCase();
-        return name.includes(query) || phone.includes(query) || address.includes(query);
-      });
-
-      if (filtered.length === 0) {
-        container.innerHTML = `
-          <div class="card" style="grid-column: 1 / -1; text-align: center; padding: 36px;">
-            <p style="color: hsl(var(--text-muted));">Nenhum cliente encontrado para a busca "${query}".</p>
+  container.innerHTML = `
+    <div class="max-w-7xl mx-auto px-4 py-8 pb-24 md:pb-8">
+      
+      <!-- Cabeçalho e Ações -->
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div>
+          <h1 class="text-3xl font-display font-bold text-slate-900">Meus Clientes</h1>
+          <p class="text-slate-500 mt-1">Gerencie sua base de clientes e fornecedores (${contacts.length} registros)</p>
+        </div>
+        
+        <div class="flex flex-col sm:flex-row gap-3">
+          <a href="#cadastro" class="px-4 py-2 bg-brand-600 text-white font-medium text-sm rounded-xl hover:bg-brand-700 transition-colors flex items-center justify-center gap-2 shadow-sm whitespace-nowrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Novo Cadastro
+          </a>
+          <div class="relative w-full">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="text" id="search-input" placeholder="Buscar clientes..." 
+              class="w-full sm:w-64 pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm transition-all shadow-sm placeholder-slate-400" />
           </div>
-        `;
-      } else {
-        container.innerHTML = filtered.map(c => renderContactCard(c)).join('');
-        attachCardListeners();
-      }
-    });
-  }
+        </div>
+      </div>
+
+      <!-- Grid de Contatos -->
+      <div id="contacts-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <!-- Renderizado dinamicamente -->
+      </div>
+      
+    </div>
+  `;
+
+  document.getElementById('search-input').addEventListener('input', (e) => {
+    searchTerm = e.target.value;
+    updateList();
+  });
+
+  updateList();
 }

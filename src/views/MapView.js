@@ -1,245 +1,176 @@
 /**
  * ============================================================================
- * TELA DO GESTOR: ABA DE INTEGRAÇÃO COM O GOOGLE MAPS
+ * VIEW DO MAPA (TAILWIND REFACTOR)
  * ============================================================================
- * Exibe o mapa com marcadores (pins) indicando a localização dos clientes cadastrados.
- * Contém lista lateral iterativa para centralizar e visualizar detalhes do cliente.
  */
 
-import { openContactModal } from '../components/ContactModal.js';
-import { Loader } from '@googlemaps/js-api-loader';
+import { GOOGLE_MAPS_API_KEY, USE_DEMO_MODE } from '../config/firebase.js';
 
-let googleMapInstance = null;
+let mapInstance = null;
 let markers = [];
 
-export function renderMapView(contacts) {
-  return `
-    <div class="view-container" style="display: flex; flex-direction: column;">
-      <div class="view-header" style="margin-bottom: 20px;">
-        <div class="header-title">
-          <h1>Mapa de Clientes (Google Maps)</h1>
-          <p>Geolocalização interativa dos endereços cadastrados na base de clientes</p>
+export function renderMapView(container, contacts) {
+  // Container principal do mapa que ocupa o espaço restante da tela
+  container.innerHTML = `
+    <div class="flex flex-col md:flex-row h-[calc(100vh-64px)] overflow-hidden bg-surface pb-16 md:pb-0">
+      
+      <!-- Painel Lateral -->
+      <div class="w-full md:w-80 lg:w-96 bg-white border-b md:border-b-0 md:border-r border-slate-200 flex flex-col h-1/3 md:h-full z-10 shadow-soft">
+        <div class="p-4 md:p-6 border-b border-slate-100">
+          <h2 class="text-xl font-display font-bold text-slate-800">Mapa de Clientes</h2>
+          <p class="text-sm text-slate-500 mt-1">Visualize a distribuição geográfica da sua base.</p>
+        </div>
+        
+        <div class="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6 space-y-3" id="map-contact-list">
+          <!-- Renderizado dinamicamente -->
         </div>
       </div>
 
-      <div class="map-container-wrapper">
-        <!-- Canvas principal do Mapa -->
-        <div id="google-map-canvas" class="map-canvas">
-          <div class="loading-screen" style="min-height: 100%;">
-            <div class="spinner"></div>
-            <p id="map-loading-text">Carregando mapa dos clientes...</p>
+      <!-- Área do Mapa -->
+      <div class="flex-1 relative h-2/3 md:h-full bg-slate-100">
+        <div id="google-map" class="absolute inset-0"></div>
+        ${!GOOGLE_MAPS_API_KEY ? `
+          <div class="absolute inset-x-4 top-4 bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-xl shadow-sm text-sm z-10 flex items-start gap-2 max-w-lg mx-auto">
+            <svg class="flex-shrink-0 mt-0.5" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            <div>
+              <span class="font-semibold block mb-1">Chave do Google Maps ausente</span>
+              O mapa está rodando em modo de desenvolvimento restrito. Configure a VITE_GOOGLE_MAPS_API_KEY no .env para remover a marca d'água.
+            </div>
           </div>
-        </div>
-
-        <!-- Barra lateral de clientes no mapa -->
-        <div class="map-sidebar">
-          <div class="map-sidebar-header">
-            <h3>Clientes Mapeados (${contacts.length})</h3>
-            <p>Clique em um cliente para centralizar no mapa</p>
-          </div>
-          <div class="map-client-list">
-            ${contacts.map((c, i) => `
-              <div class="map-client-item" data-idx="${i}" data-id="${c.id}">
-                <h5>${c.fullName}</h5>
-                <p>📍 ${c.city || 'São Paulo'} - ${c.state || 'SP'}</p>
-                <p style="font-size: 0.75rem; color: hsl(var(--text-muted)); margin-top: 2px;">${c.address}</p>
-              </div>
-            `).join('')}
-          </div>
-        </div>
+        ` : ''}
       </div>
     </div>
   `;
-}
 
-export function bindMapEvents(contacts, onDeleteContact) {
-  // Configuração do Google Maps Loader
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
-  const mapContainer = document.getElementById('google-map-canvas');
-
-  // Adiciona evento de clique na barra lateral
-  const sidebarItems = document.querySelectorAll('.map-client-item');
-  sidebarItems.forEach(item => {
-    item.addEventListener('click', () => {
-      const idx = parseInt(item.getAttribute('data-idx'), 10);
-      const contact = contacts[idx];
-      
-      sidebarItems.forEach(el => el.classList.remove('active'));
-      item.classList.add('active');
-
-      if (googleMapInstance && contact.lat && contact.lng) {
-        googleMapInstance.panTo({ lat: contact.lat, lng: contact.lng });
-        googleMapInstance.setZoom(16);
-      } else {
-        // Se o usuário clicar, também podemos abrir o modal de detalhes
-        openContactModal(contact, onDeleteContact);
-      }
-    });
-  });
-
-  // Renderizar Google Maps ou fallback visual interativo superior de demonstração se não houver chave paga do Google Maps
-  if (!apiKey) {
-    renderInteractiveDemoMap(mapContainer, contacts, onDeleteContact);
-    return;
+  // Renderiza a lista na lateral
+  const listContainer = document.getElementById('map-contact-list');
+  if (contacts.length === 0) {
+    listContainer.innerHTML = `<p class="text-slate-400 text-sm text-center mt-4">Nenhum contato cadastrado.</p>`;
+  } else {
+    listContainer.innerHTML = contacts.map(c => `
+      <div class="p-3 bg-surface rounded-xl border border-slate-100 hover:border-brand-200 cursor-pointer transition-colors group" onclick="window.focusMarker('${c.id}')">
+        <div class="font-semibold text-slate-800 text-sm group-hover:text-brand-600 transition-colors">${c.name}</div>
+        <div class="text-xs text-slate-500 flex items-center gap-1 mt-1 truncate">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+          <span class="truncate">${c.city} - ${c.state}</span>
+        </div>
+      </div>
+    `).join('');
   }
 
-  const loader = new Loader({
-    apiKey: apiKey,
-    version: "weekly",
-    libraries: ["places"]
-  });
-
-  loader.load().then(async () => {
-    const { Map } = await window.google.maps.importLibrary("maps");
-    
-    // Centro inicial (São Paulo SP)
-    const defaultCenter = { lat: -23.561684, lng: -46.655981 };
-    if (contacts.length > 0 && contacts[0].lat && contacts[0].lng) {
-      defaultCenter.lat = contacts[0].lat;
-      defaultCenter.lng = contacts[0].lng;
-    }
-
-    googleMapInstance = new Map(mapContainer, {
-      center: defaultCenter,
-      zoom: 13,
-      mapId: 'CRM_CLIENTES_MAP',
-      disableDefaultUI: false,
-      styles: getDarkMapStyles()
-    });
-
-    // Criar marcadores
-    contacts.forEach((contact) => {
-      if (contact.lat && contact.lng) {
-        const marker = new window.google.maps.Marker({
-          position: { lat: contact.lat, lng: contact.lng },
-          map: googleMapInstance,
-          title: contact.fullName,
-          animation: window.google.maps.Animation.DROP
-        });
-
-        const infoWindow = new window.google.maps.InfoWindow({
-          content: `
-            <div style="padding: 8px; max-width: 240px; color: #0f172a;">
-              <h4 style="margin-bottom: 4px; font-weight: 700;">${contact.fullName}</h4>
-              <p style="font-size: 13px; margin-bottom: 6px;">📞 ${contact.phone}</p>
-              <p style="font-size: 12px; color: #475569;">${contact.address}</p>
-              <button id="info-btn-${contact.id}" style="margin-top: 8px; padding: 6px 12px; background: #0ea5e9; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">
-                Ver Detalhes Completos
-              </button>
-            </div>
-          `
-        });
-
-        marker.addListener('click', () => {
-          infoWindow.open(googleMapInstance, marker);
-          setTimeout(() => {
-            document.getElementById(`info-btn-${contact.id}`)?.addEventListener('click', () => {
-              openContactModal(contact, onDeleteContact);
-            });
-          }, 100);
-        });
-
-        markers.push(marker);
-      }
-    });
-  }).catch(err => {
-    console.warn("Erro ao carregar Google Maps com API Key. Exibindo mapa simulado de alta fidelidade.", err);
-    renderInteractiveDemoMap(mapContainer, contacts, onDeleteContact);
-  });
+  // Inicializa a API do Google Maps (se não estiver carregada)
+  if (!window.google || !window.google.maps) {
+    const script = document.createElement('script');
+    const apiKey = GOOGLE_MAPS_API_KEY || ''; 
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initGoogleMap`;
+    script.async = true;
+    script.defer = true;
+    window.initGoogleMap = () => initMap(contacts);
+    document.head.appendChild(script);
+  } else {
+    initMap(contacts);
+  }
 }
 
-/**
- * Fallback de Mapa Interativo de Alta Fidelidade com OpenStreetMap / Leaflet customizado
- * (Garante que o painel mostre um mapa real de verdade mesmo sem a chave paga da API do Google Maps configurada)
- */
-function renderInteractiveDemoMap(container, contacts, onDeleteContact) {
-  // Usaremos um container interativo com OpenStreetMap iframe / pinos SVG customizados e feedback
-  const primaryContact = contacts[0] || { lat: -23.561684, lng: -46.655981 };
-  const lat = primaryContact.lat || -23.561684;
-  const lng = primaryContact.lng || -46.655981;
+function initMap(contacts) {
+  const mapElement = document.getElementById('google-map');
+  if (!mapElement) return;
 
-  container.innerHTML = `
-    <div style="position: relative; width: 100%; height: 100%; overflow: hidden; background: #1e293b; display: flex; flex-direction: column;">
-      <!-- Mapa Embebedado Interativo (OpenStreetMap com tema escuro de contraste) -->
-      <iframe 
-        width="100%" 
-        height="100%" 
-        frameborder="0" 
-        scrolling="no" 
-        marginheight="0" 
-        marginwidth="0" 
-        style="filter: invert(90%) hue-rotate(180deg) brightness(85%) contrast(110%); border: none; flex: 1;"
-        src="https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.08}%2C${lat - 0.05}%2C${lng + 0.08}%2C${lat + 0.05}&layer=mapnik&marker=${lat}%2C${lng}">
-      </iframe>
-
-      <!-- Overlay de Pinos Interativos Nativos do CRM -->
-      <div style="position: absolute; top: 16px; left: 16px; z-index: 10; display: flex; flex-wrap: wrap; gap: 8px; max-width: 80%;">
-        ${contacts.map(c => `
-          <div class="custom-pin card-hover" data-contact-id="${c.id}" style="pointer-events: auto;">
-            📍 ${c.fullName.split(' ')[0]} • ${c.neighborhood || c.city || 'SP'}
-          </div>
-        `).join('')}
-      </div>
-
-      <!-- Banner Informativo discreto no rodapé do mapa -->
-      <div style="position: absolute; bottom: 16px; left: 16px; right: 16px; z-index: 10; background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(12px); border: 1px solid var(--border-glass); border-radius: 12px; padding: 12px 18px; display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem;">
-        <div>
-          <strong style="color: hsl(var(--accent-cyan));">🗺️ Integração Google Maps / Geodados Ativa</strong>
-          <span style="color: hsl(var(--text-secondary)); display: block;">${contacts.length} clientes geolocalizados em São Paulo/Brasil. Clique em um pino ou na lista lateral para ver os detalhes do cliente.</span>
-        </div>
-        <span class="mode-badge demo">Simulação Mapa</span>
-      </div>
-    </div>
-  `;
-
-  // Adicionar click nos pinos do overlay
-  const pins = container.querySelectorAll('.custom-pin');
-  pins.forEach(pin => {
-    pin.addEventListener('click', () => {
-      const id = pin.getAttribute('data-contact-id');
-      const contact = contacts.find(c => c.id === id);
-      if (contact) openContactModal(contact, onDeleteContact);
-    });
-  });
-}
-
-/**
- * Custom Dark Theme para Google Maps oficial
- */
-function getDarkMapStyles() {
-  return [
-    { elementType: "geometry", stylers: [{ color: "#0f172a" }] },
-    { elementType: "labels.text.stroke", stylers: [{ color: "#0f172a" }] },
-    { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
-    {
-      featureType: "administrative.locality",
-      elementType: "labels.text.fill",
-      stylers: [{ color: "#38bdf8" }],
-    },
-    {
-      featureType: "poi",
-      elementType: "labels.text.fill",
-      stylers: [{ color: "#94a3b8" }],
-    },
-    {
-      featureType: "road",
-      elementType: "geometry",
-      stylers: [{ color: "#1e293b" }],
-    },
-    {
-      featureType: "road",
-      elementType: "geometry.stroke",
-      stylers: [{ color: "#212a37" }],
-    },
-    {
-      featureType: "road",
-      elementType: "labels.text.fill",
-      stylers: [{ color: "#9ca5b3" }],
-    },
-    {
-      featureType: "water",
-      elementType: "geometry",
-      stylers: [{ color: "#090e17" }],
-    }
+  // Estilo "Claro / Boutique" em vez do escuro antigo
+  const mapStyle = [
+    { elementType: "geometry", stylers: [{ color: "#f5f5f5" }] },
+    { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+    { elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
+    { elementType: "labels.text.stroke", stylers: [{ color: "#f5f5f5" }] },
+    { featureType: "administrative.land_parcel", elementType: "labels.text.fill", stylers: [{ color: "#bdbdbd" }] },
+    { featureType: "poi", elementType: "geometry", stylers: [{ color: "#eeeeee" }] },
+    { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
+    { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#e5e5e5" }] },
+    { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#9e9e9e" }] },
+    { featureType: "road", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
+    { featureType: "road.arterial", elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
+    { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#dadada" }] },
+    { featureType: "road.highway", elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
+    { featureType: "road.local", elementType: "labels.text.fill", stylers: [{ color: "#9e9e9e" }] },
+    { featureType: "transit.line", elementType: "geometry", stylers: [{ color: "#e5e5e5" }] },
+    { featureType: "transit.station", elementType: "geometry", stylers: [{ color: "#eeeeee" }] },
+    { featureType: "water", elementType: "geometry", stylers: [{ color: "#c9c9c9" }] },
+    { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#9e9e9e" }] }
   ];
+
+  mapInstance = new google.maps.Map(mapElement, {
+    center: { lat: -14.235, lng: -51.925 }, // Centro do Brasil
+    zoom: 4,
+    styles: mapStyle,
+    disableDefaultUI: true,
+    zoomControl: true,
+  });
+
+  const bounds = new google.maps.LatLngBounds();
+  let hasValidCoords = false;
+
+  contacts.forEach(contact => {
+    // Simulação básica de coordenadas baseadas no CEP (para demonstração)
+    // Em produção real com Geocoding API, converteríamos o endereço em Lat/Lng exata.
+    // Aqui geramos leve dispersão em torno do centro para fins de demonstração visual se não tiver geocoding real
+    if (contact.cep) {
+      const pseudoLat = -23.55 + (parseInt(contact.cep.substring(0, 2)) || 0) * 0.1 - 2.5;
+      const pseudoLng = -46.63 + (parseInt(contact.cep.substring(2, 4)) || 0) * 0.1 - 2.5;
+      
+      const position = { lat: pseudoLat, lng: pseudoLng };
+
+      const isCliente = contact.type === 'cliente';
+      const markerColor = isCliente ? '#bc9d87' : '#9ca3af';
+
+      const marker = new google.maps.Marker({
+        position,
+        map: mapInstance,
+        title: contact.name,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 10,
+          fillColor: markerColor,
+          fillOpacity: 1,
+          strokeWeight: 2,
+          strokeColor: '#ffffff'
+        }
+      });
+
+      const infoWindow = new google.maps.InfoWindow({
+        content: `
+          <div style="padding: 4px; font-family: Inter, sans-serif;">
+            <strong style="color: #1e293b; font-size: 14px;">${contact.name}</strong><br>
+            <span style="color: #64748b; font-size: 12px;">${contact.city} - ${contact.state}</span>
+          </div>
+        `
+      });
+
+      marker.addListener('click', () => {
+        infoWindow.open(mapInstance, marker);
+      });
+
+      markers.push({ id: contact.id, marker, infoWindow });
+      bounds.extend(position);
+      hasValidCoords = true;
+    }
+  });
+
+  if (hasValidCoords) {
+    mapInstance.fitBounds(bounds);
+    // Impede zoom muito próximo se tiver apenas 1 ponto
+    const listener = google.maps.event.addListener(mapInstance, "idle", function() { 
+      if (mapInstance.getZoom() > 14) mapInstance.setZoom(14); 
+      google.maps.event.removeListener(listener); 
+    });
+  }
+
+  // Permite que o clique na lista focalize o marcador correspondente
+  window.focusMarker = (id) => {
+    const item = markers.find(m => m.id === id);
+    if (item) {
+      mapInstance.setZoom(15);
+      mapInstance.panTo(item.marker.getPosition());
+      item.infoWindow.open(mapInstance, item.marker);
+    }
+  };
 }

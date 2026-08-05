@@ -37,6 +37,7 @@ const firebaseConfig = {
 
 // Detectar se estamos em Modo Demo (para testar o app imediatamente sem precisar de uma chave real do Firebase)
 export const USE_DEMO_MODE = !import.meta.env.VITE_FIREBASE_API_KEY;
+export const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
 let app;
 let auth;
