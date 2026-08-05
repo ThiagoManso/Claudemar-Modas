@@ -198,42 +198,79 @@ function renderClientDebtsList() {
   const totalEl = document.getElementById('client-total-debt');
   if (!container) return;
 
-  const pending = currentClientDebts.filter(d => d.status === 'pending');
-  
   let totalPending = 0;
   
-  if (pending.length === 0) {
-    container.innerHTML = `<div class="text-center text-sm text-slate-400 py-4 bg-slate-50 rounded-lg border border-slate-100">Nenhuma pendência.</div>`;
+  if (currentClientDebts.length === 0) {
+    container.innerHTML = `<div class="text-center text-sm text-slate-400 py-4 bg-slate-50 rounded-lg border border-slate-100">Nenhum histórico encontrado.</div>`;
     totalEl.textContent = 'R$ 0,00';
     totalEl.className = "text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full";
     return;
   }
 
-  container.innerHTML = pending.map(debt => {
+  container.innerHTML = currentClientDebts.map(debt => {
     const remaining = debt.amountTotal - (debt.amountPaid || 0);
-    totalPending += remaining;
+    if (debt.status === 'pending') {
+      totalPending += remaining;
+    }
     
     const diffDays = Math.floor(Math.abs(new Date() - new Date(debt.createdAt)) / (1000 * 60 * 60 * 24));
     
+    // Histórico de pagamentos da dívida
+    let paymentsHtml = '';
+    if (debt.payments && debt.payments.length > 0) {
+      paymentsHtml = `
+        <div class="mt-2 pt-2 border-t border-slate-100 space-y-1.5">
+          <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Histórico de Pagamentos</div>
+          ${debt.payments.map(p => {
+            const pDate = new Date(p.date).toLocaleDateString('pt-BR');
+            return `<div class="flex justify-between text-xs text-slate-600 bg-slate-50 px-2 py-1 rounded">
+              <span>${pDate}</span>
+              <span class="font-medium text-emerald-600">+ R$ ${parseFloat(p.amount).toFixed(2)}</span>
+            </div>`;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    if (debt.status === 'paid') {
+      return `
+        <div class="border border-emerald-200 rounded-lg p-3 bg-emerald-50/50 shadow-sm flex flex-col gap-2 relative opacity-80">
+          <div class="flex justify-between items-start">
+            <div>
+              <div class="flex items-center gap-1.5 text-emerald-700 font-bold mb-1">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                QUITADO
+              </div>
+              <div class="text-xs text-slate-500 line-through">Lançado: R$ ${debt.amountTotal.toFixed(2)}</div>
+            </div>
+          </div>
+          ${paymentsHtml}
+        </div>
+      `;
+    }
+
     return `
       <div class="border border-slate-200 rounded-lg p-3 bg-white shadow-sm flex flex-col gap-2 relative">
         <div class="flex justify-between items-start">
           <div>
             <div class="text-xs text-slate-400">Lançado há ${diffDays} dias</div>
             <div class="font-bold text-slate-700 text-lg">R$ ${remaining.toFixed(2)}</div>
-            ${debt.amountPaid > 0 ? `<div class="text-[10px] text-emerald-600 font-medium mt-0.5">Pago: R$ ${debt.amountPaid.toFixed(2)}</div>` : ''}
+            <div class="text-xs text-slate-500 mt-0.5">Total da mercadoria: R$ ${debt.amountTotal.toFixed(2)}</div>
           </div>
           <div class="flex flex-col gap-1.5">
             <button onclick="window.clientModalPayOff('${debt.id}')" class="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded shadow-sm transition-colors">QUITAR</button>
             <button onclick="window.clientModalPartial('${debt.id}')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[11px] font-medium rounded transition-colors border border-slate-200">Parcial</button>
           </div>
         </div>
+        ${paymentsHtml}
       </div>
     `;
   }).join('');
 
   totalEl.textContent = `R$ ${totalPending.toFixed(2)}`;
-  totalEl.className = "text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full";
+  totalEl.className = totalPending > 0 
+    ? "text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full"
+    : "text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full";
 }
 
 window.clientModalPayOff = async (id) => {

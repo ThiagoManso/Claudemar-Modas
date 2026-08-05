@@ -9,7 +9,8 @@ import {
   onSnapshot, 
   query, 
   where,
-  orderBy 
+  orderBy,
+  arrayUnion
 } from 'firebase/firestore';
 
 const COLLECTION_NAME = 'sales';
@@ -49,25 +50,33 @@ export async function registerPayment(debt, paymentAmount) {
   const newAmountPaid = (debt.amountPaid || 0) + parseFloat(paymentAmount);
   const isPaid = newAmountPaid >= debt.amountTotal;
   
-  const updates = {
-    amountPaid: newAmountPaid,
-    status: isPaid ? 'paid' : 'pending',
-    updatedAt: new Date().toISOString()
+  const newPaid = (debt.amountPaid || 0) + parseFloat(paymentAmount);
+  const status = newPaid >= debt.amountTotal ? 'paid' : 'pending';
+  
+  const newPayment = {
+    amount: parseFloat(paymentAmount),
+    date: new Date().toISOString(),
+    type: 'partial'
   };
 
   if (USE_DEMO_MODE) {
-    const index = demoSales.findIndex(d => d.id === debt.id);
-    if (index > -1) {
-      demoSales[index] = { ...demoSales[index], ...updates };
-      demoSales[index].payments.push({ amount: parseFloat(paymentAmount), date: new Date().toISOString() });
+    const idx = demoSales.findIndex(d => d.id === debt.id);
+    if (idx !== -1) {
+      demoSales[idx].amountPaid = newPaid;
+      demoSales[idx].status = status;
+      if (!demoSales[idx].payments) demoSales[idx].payments = [];
+      demoSales[idx].payments.push(newPayment);
     }
     return;
   }
 
+  const updates = {
+    amountPaid: newPaid,
+    status: status,
+    payments: arrayUnion(newPayment)
+  };
+
   const debtRef = doc(db, COLLECTION_NAME, debt.id);
-  
-  // Como o Firestore não tem um array.push nativo tão simples via update sem o arrayUnion (que exige importar do firestore), 
-  // e pra evitar complexidade, podemos apenas atualizar os valores numéricos principais
   await updateDoc(debtRef, updates);
 }
 
