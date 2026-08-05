@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>CRM Clientes | Claudemar Modas</title>
+    
+    <!-- Configuração PWA / Web App Instalável (Android & iOS Standalone) -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Claudemar CRM" />
+    <link rel="apple-touch-icon" href="/icon-192.svg" />
+    <meta name="mobile-web-app-capable" content="yes" />
+
+    <!-- Google Fonts: Outfit (Títulos) & Inter (Corpo) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Ícone Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/icon-192.svg" />
+  </head>
+  <body class="theme-dark">
+    <!-- Efeito de Luz / Fundo Dinâmico Glassmorphism -->
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+    
+    <!-- Container Principal da Aplicação -->
+    <div id="app" class="app-container">
+      <!-- Inicializando -->
+      <div class="loading-screen">
+        <div class="spinner"></div>
+        <p>Carregando sistema CRM...</p>
+      </div>
+    </div>
+
+    <!-- Modais e Notificações (Toast) -->
+    <div id="modal-root" class="modal-root hidden"></div>
+    <div id="toast-root" class="toast-root"></div>
+
+    <script type="module" src="/src/main.js"></script>
+    <script>
+      // Registro do Service Worker para PWA / Instalação na Tela Inicial
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(err => {
+            console.log('Aviso: SW não registrado no modo dev:', err);
+          });
+        });
+      }
+    </script>
+  </body>
+</html>

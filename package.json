@@ -1,0 +1,26 @@
+{
+  "name": "crm-claudemar-modas",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "CRM Básico Multiplataforma (Web, Android, iOS) com Firebase e Google Maps",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "cap:sync": "cap sync",
+    "cap:android": "cap add android && cap sync && cap open android",
+    "cap:ios": "cap add ios && cap sync && cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/core": "^6.1.2",
+    "@capacitor/ios": "^6.1.2",
+    "@googlemaps/js-api-loader": "^1.16.8",
+    "firebase": "^10.13.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.2",
+    "vite": "^5.4.2"
+  }
+}
