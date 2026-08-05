@@ -12,12 +12,13 @@ import { renderLoginView } from './views/LoginView.js';
 import { renderContactListView } from './views/ContactListView.js';
 import { renderMapView } from './views/MapView.js';
 import { renderPublicFormView } from './views/PublicFormView.js';
+import { renderFinanceView, destroyFinanceView } from './views/FinanceView.js';
 import { showToast } from './components/Toast.js';
 
 // Estado global do aplicativo
 let currentUser = null;
 let currentContacts = [];
-let currentView = 'admin'; // 'admin', 'mapa', 'login', 'cadastro'
+let currentView = 'admin'; // 'admin', 'mapa', 'login', 'cadastro', 'financeiro'
 let unsubscribeContacts = null;
 
 const appContainer = document.getElementById('app');
@@ -31,6 +32,8 @@ function initApp() {
     currentView = 'cadastro';
   } else if (hash === 'mapa') {
     currentView = 'mapa';
+  } else if (hash === 'cobrancas') {
+    currentView = 'cobrancas';
   } else if (hash === 'login') {
     currentView = 'login';
   } else {
@@ -53,7 +56,7 @@ function initApp() {
     if (user && !unsubscribeContacts) {
       unsubscribeContacts = subscribeContacts((contacts) => {
         currentContacts = contacts;
-        if (currentView === 'admin' || currentView === 'mapa') {
+        if (currentView === 'admin' || currentView === 'mapa' || currentView === 'cobrancas') {
           renderCurrentView();
         }
       });
@@ -69,6 +72,8 @@ function handleHashChange() {
     currentView = 'cadastro';
   } else if (hash === 'mapa') {
     currentView = !currentUser ? 'login' : 'mapa';
+  } else if (hash === 'cobrancas') {
+    currentView = !currentUser ? 'login' : 'cobrancas';
   } else if (hash === 'login') {
     currentView = currentUser ? 'admin' : 'login';
   } else {
@@ -125,6 +130,13 @@ function renderCurrentView() {
   if (currentView === 'mapa') {
     renderMapView(viewContainer, currentContacts);
     return;
+  }
+
+  if (currentView === 'cobrancas') {
+    renderFinanceView(viewContainer);
+    return;
+  } else {
+    destroyFinanceView();
   }
 
   renderContactListView(viewContainer, currentContacts, async (id) => {

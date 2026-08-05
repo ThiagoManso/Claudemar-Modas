@@ -5,6 +5,11 @@
  */
 
 import { formatCEP } from '../services/contactService.js';
+import { addDebt, subscribeToClientDebts, payOffDebt, registerPayment } from '../services/financeService.js';
+import { showToast } from './Toast.js';
+
+let unsubscribeClientDebts = null;
+let currentClientDebts = [];
 
 export function renderContactModal(contact, onClose, onDelete) {
   const isCliente = contact.type === 'cliente';
@@ -35,8 +40,8 @@ export function renderContactModal(contact, onClose, onDelete) {
           </button>
         </div>
 
-        <!-- Corpo do Modal -->
-        <div class="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-5">
+        <!-- Corpo do Modal (Informações) -->
+        <div class="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-5" id="modal-tab-info">
           <!-- WhatsApp Section -->
           <div class="bg-emerald-50 rounded-xl p-4 border border-emerald-100 flex items-center justify-between">
             <div>
@@ -73,11 +78,41 @@ export function renderContactModal(contact, onClose, onDelete) {
             <p class="text-sm text-slate-700"><span class="font-medium">Bairro:</span> ${contact.neighborhood}</p>
             <p class="text-sm text-slate-700"><span class="font-medium">Cidade/UF:</span> ${contact.city} - ${contact.state}</p>
           </div>
+        <!-- Seção Financeiro (Consignações) -->
+        <div class="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-5 hidden" id="modal-tab-finance">
+          <div class="bg-brand-50 p-4 rounded-xl border border-brand-100 mb-4">
+            <h3 class="text-sm font-semibold text-brand-800 mb-2">Lançar Nova Mercadoria</h3>
+            <div class="flex gap-2">
+              <input type="number" id="new-debt-amount" placeholder="Valor (Ex: 150,00)" class="flex-1 rounded-lg border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 bg-white">
+              <button id="btn-add-debt" class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap shadow-sm">
+                Lançar
+              </button>
+            </div>
+          </div>
+          
+          <div>
+            <h3 class="text-sm font-semibold text-slate-700 mb-3 flex justify-between items-center">
+              Histórico de Pendências
+              <span id="client-total-debt" class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">R$ 0,00</span>
+            </h3>
+            <div id="client-debts-list" class="space-y-3">
+              <div class="text-center text-sm text-slate-400 py-4">Carregando...</div>
+            </div>
+          </div>
         </div>
 
         <!-- Rodapé / Ações -->
-        <div class="p-4 border-t border-slate-100 bg-surface/50 flex justify-end gap-3">
+        <div class="p-4 border-t border-slate-100 bg-surface/50 flex justify-between gap-3">
+          <div class="flex bg-slate-100 rounded-lg p-1">
+            <button id="tab-info" class="px-4 py-1.5 text-sm font-medium rounded-md bg-white text-slate-800 shadow-sm transition-all">Info</button>
+            <button id="tab-finance" class="px-4 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-700 transition-all">Financeiro</button>
+          </div>
+          
           <button id="btn-delete-contact" class="px-4 py-2 text-red-600 bg-red-50 hover:bg-red-100 font-medium rounded-lg transition-colors flex items-center gap-2 text-sm">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            Excluir
+          </button>
+        </div>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
             Excluir
           </button>
@@ -89,8 +124,55 @@ export function renderContactModal(contact, onClose, onDelete) {
   document.getElementById('modal-root').innerHTML = modalHtml;
   document.getElementById('modal-root').classList.remove('hidden');
 
-  // Event Listeners
+  // Tabs Logic
+  const tabInfo = document.getElementById('tab-info');
+  const tabFinance = document.getElementById('tab-finance');
+  const contentInfo = document.getElementById('modal-tab-info');
+  const contentFinance = document.getElementById('modal-tab-finance');
+
+  tabInfo.addEventListener('click', () => {
+    tabInfo.className = "px-4 py-1.5 text-sm font-medium rounded-md bg-white text-slate-800 shadow-sm transition-all";
+    tabFinance.className = "px-4 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-700 transition-all";
+    contentInfo.classList.remove('hidden');
+    contentFinance.classList.add('hidden');
+  });
+
+  tabFinance.addEventListener('click', () => {
+    tabFinance.className = "px-4 py-1.5 text-sm font-medium rounded-md bg-white text-slate-800 shadow-sm transition-all";
+    tabInfo.className = "px-4 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-700 transition-all";
+    contentFinance.classList.remove('hidden');
+    contentInfo.classList.add('hidden');
+  });
+
+  // Finance Logic
+  if (unsubscribeClientDebts) unsubscribeClientDebts();
+  
+  unsubscribeClientDebts = subscribeToClientDebts(contact.id, (debts) => {
+    currentClientDebts = debts;
+    renderClientDebtsList();
+  });
+
+  document.getElementById('btn-add-debt').addEventListener('click', async () => {
+    const input = document.getElementById('new-debt-amount');
+    const val = parseFloat(input.value.replace(',', '.'));
+    if (!val || val <= 0) {
+      return showToast('Insira um valor válido', 'error');
+    }
+    try {
+      await addDebt(contact.id, contact.name, val);
+      input.value = '';
+      showToast('Mercadoria lançada com sucesso!', 'success');
+    } catch(e) {
+      showToast('Erro ao lançar valor.', 'error');
+    }
+  });
+
+  // Event Listeners Genéricos
   const close = () => {
+    if (unsubscribeClientDebts) {
+      unsubscribeClientDebts();
+      unsubscribeClientDebts = null;
+    }
     document.getElementById('modal-root').classList.add('hidden');
     document.getElementById('modal-root').innerHTML = '';
     if (onClose) onClose();
@@ -108,3 +190,70 @@ export function renderContactModal(contact, onClose, onDelete) {
     }
   });
 }
+
+function renderClientDebtsList() {
+  const container = document.getElementById('client-debts-list');
+  const totalEl = document.getElementById('client-total-debt');
+  if (!container) return;
+
+  const pending = currentClientDebts.filter(d => d.status === 'pending');
+  
+  let totalPending = 0;
+  
+  if (pending.length === 0) {
+    container.innerHTML = `<div class="text-center text-sm text-slate-400 py-4 bg-slate-50 rounded-lg border border-slate-100">Nenhuma pendência.</div>`;
+    totalEl.textContent = 'R$ 0,00';
+    totalEl.className = "text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full";
+    return;
+  }
+
+  container.innerHTML = pending.map(debt => {
+    const remaining = debt.amountTotal - (debt.amountPaid || 0);
+    totalPending += remaining;
+    
+    const diffDays = Math.floor(Math.abs(new Date() - new Date(debt.createdAt)) / (1000 * 60 * 60 * 24));
+    
+    return `
+      <div class="border border-slate-200 rounded-lg p-3 bg-white shadow-sm flex flex-col gap-2 relative">
+        <div class="flex justify-between items-start">
+          <div>
+            <div class="text-xs text-slate-400">Lançado há ${diffDays} dias</div>
+            <div class="font-bold text-slate-700 text-lg">R$ ${remaining.toFixed(2)}</div>
+            ${debt.amountPaid > 0 ? `<div class="text-[10px] text-emerald-600 font-medium mt-0.5">Pago: R$ ${debt.amountPaid.toFixed(2)}</div>` : ''}
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <button onclick="window.clientModalPayOff('${debt.id}')" class="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded shadow-sm transition-colors">QUITAR</button>
+            <button onclick="window.clientModalPartial('${debt.id}')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[11px] font-medium rounded transition-colors border border-slate-200">Parcial</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  totalEl.textContent = `R$ ${totalPending.toFixed(2)}`;
+  totalEl.className = "text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full";
+}
+
+window.clientModalPayOff = async (id) => {
+  if(!confirm('Quitar totalmente?')) return;
+  const debt = currentClientDebts.find(d => d.id === id);
+  if(debt) {
+    await payOffDebt(debt);
+    showToast('Quitado!', 'success');
+  }
+};
+
+window.clientModalPartial = async (id) => {
+  const debt = currentClientDebts.find(d => d.id === id);
+  if(!debt) return;
+  const remaining = debt.amountTotal - (debt.amountPaid || 0);
+  const valStr = prompt(`Pagar parcial (Falta R$ ${remaining.toFixed(2)}):`);
+  if(!valStr) return;
+  const val = parseFloat(valStr.replace(',', '.'));
+  if(val && val > 0 && val <= remaining) {
+    await registerPayment(debt, val);
+    showToast('Baixa parcial registrada', 'success');
+  } else {
+    showToast('Valor inválido', 'error');
+  }
+};

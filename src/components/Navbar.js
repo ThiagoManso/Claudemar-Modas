@@ -57,6 +57,13 @@ export function renderNavbar(currentView, user, onNavigate, onLogout) {
               </svg>
               Mapa
             </a>
+            <a href="#cobrancas" data-nav="cobrancas" class="px-3 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors ${getActiveClasses('cobrancas')}">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="1" x2="12" y2="23"></line>
+                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+              </svg>
+              Cobranças
+            </a>
             <button id="btn-copy-public-link" class="px-3 py-2 rounded-lg font-medium text-sm text-slate-500 hover:text-brand-600 hover:bg-surface flex items-center gap-2 transition-colors outline-none" title="Copiar link do formulário">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
@@ -116,6 +123,13 @@ export function renderNavbar(currentView, user, onNavigate, onLogout) {
             <line x1="16" y1="6" x2="16" y2="22"></line>
           </svg>
           <span class="text-[10px] font-medium">Mapa</span>
+        </a>
+        <a href="#cobrancas" data-nav="cobrancas" class="flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${currentView === 'cobrancas' ? 'text-brand-600' : 'text-slate-400 hover:text-slate-600'}">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="1" x2="12" y2="23"></line>
+            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+          </svg>
+          <span class="text-[10px] font-medium">Cobranças</span>
         </a>
         <button id="btn-copy-public-link-mobile" class="flex flex-col items-center justify-center w-full h-full gap-1 transition-colors text-slate-400 hover:text-brand-600">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
