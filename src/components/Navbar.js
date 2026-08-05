@@ -5,6 +5,7 @@
  */
 
 import { USE_DEMO_MODE } from '../config/firebase.js';
+import { showToast } from './Toast.js';
 
 let deferredPrompt = null;
 
@@ -53,14 +54,14 @@ export function renderNavbar(currentView, user, onNavigate, onLogout) {
             </svg>
             Mapa (Google Maps)
           </a>
-          <a class="nav-item" href="#cadastro" target="_blank" title="Abrir formulário para enviar ao cliente">
+          <button id="btn-copy-public-link" class="nav-item" style="border: none; background: transparent;" title="Copiar link do formulário para enviar ao cliente">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
               <polyline points="15 3 21 3 21 9"></polyline>
               <line x1="10" y1="14" x2="21" y2="3"></line>
             </svg>
-            Link Público
-          </a>
+            Copiar Link Público
+          </button>
         </nav>
 
         <div class="nav-right">
@@ -109,6 +110,15 @@ export function bindNavbarEvents(onLogout) {
       } else {
         alert("Para adicionar à sua tela inicial no Android: clique nos 3 pontinhos do menu do Chrome (⋮) e selecione 'Adicionar à tela inicial'.");
       }
+    });
+  }
+
+  const copyLinkBtn = document.getElementById('btn-copy-public-link');
+  if (copyLinkBtn) {
+    copyLinkBtn.addEventListener('click', () => {
+      const publicUrl = window.location.origin + window.location.pathname + '#cadastro';
+      navigator.clipboard?.writeText(publicUrl);
+      showToast('Link público copiado: ' + publicUrl, 'success');
     });
   }
 }
