@@ -123,20 +123,61 @@ async function geocodeAddress(contactData) {
 
   try {
     if (GOOGLE_MAPS_API_KEY) {
-      const addressString = `${contactData.street}, ${contactData.number}, ${contactData.neighborhood}, ${contactData.city} - ${contactData.state}, ${contactData.cep}`;
+      // Cria a string do endereço ignorando partes vazias
+      const parts = [
+        contactData.street,
+        contactData.number,
+        contactData.neighborhood,
+        contactData.city,
+        contactData.state,
+        "Brasil"
+      ].filter(p => p && p.toString().trim() !== '');
+      
+      const addressString = parts.join(', ');
+      
       const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(addressString)}&key=${GOOGLE_MAPS_API_KEY}`);
       const data = await response.json();
       
       if (data.status === 'OK' && data.results.length > 0) {
         lat = data.results[0].geometry.location.lat;
         lng = data.results[0].geometry.location.lng;
+      } else {
+        console.warn("Geocoding não retornou OK. Status:", data.status, "Mensagem:", data.error_message, "Endereço buscado:", addressString);
       }
     }
   } catch (error) {
-    console.warn("Erro ao geocodificar o endereço real. Usando fallback.", error);
+    console.warn("Erro ao fazer fetch na API de Geocoding do Google:", error);
   }
 
-  // Fallback visual espalhado caso falhe (ou não haja chave/endereço inválido)
+  // Tenta o fallback do Nominatim (OpenStreetMap) se o Google falhar ou não retornar resultados
+  if (!lat || !lng) {
+    try {
+      const parts = [
+        contactData.street,
+        contactData.number,
+        contactData.city,
+        contactData.state,
+        "Brasil"
+      ].filter(p => p && p.toString().trim() !== '');
+      
+      if (parts.length >= 2) {
+        const addressString = parts.join(', ');
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressString)}`);
+        const data = await response.json();
+        
+        if (data && data.length > 0) {
+          lat = parseFloat(data[0].lat);
+          lng = parseFloat(data[0].lon);
+        } else {
+          console.warn("Nominatim não encontrou coordenadas para:", addressString);
+        }
+      }
+    } catch (error) {
+      console.warn("Erro ao fazer fetch na API do Nominatim:", error);
+    }
+  }
+
+  // Fallback visual espalhado caso tudo falhe (endereço totalmente inválido/vazio)
   if (!lat || !lng) {
     const cepNum = parseInt((contactData.cep || '').replace(/\D/g, '')) || 0;
     lat = -23.55 + ((cepNum % 1000) * 0.0001);
