@@ -87,14 +87,8 @@ function initMap(contacts) {
   let hasValidCoords = false;
 
   contacts.forEach(contact => {
-    // Simulação básica de coordenadas baseadas no CEP (para demonstração)
-    // Em produção real com Geocoding API, converteríamos o endereço em Lat/Lng exata.
-    // Aqui geramos leve dispersão em torno do centro para fins de demonstração visual se não tiver geocoding real
-    if (contact.cep) {
-      const pseudoLat = -23.55 + (parseInt(contact.cep.substring(0, 2)) || 0) * 0.1 - 2.5;
-      const pseudoLng = -46.63 + (parseInt(contact.cep.substring(2, 4)) || 0) * 0.1 - 2.5;
-      
-      const position = { lat: pseudoLat, lng: pseudoLng };
+    if (contact.lat && contact.lng) {
+      const position = { lat: contact.lat, lng: contact.lng };
 
       const isCliente = contact.type === 'cliente';
       const markerColor = isCliente ? '#bc9d87' : '#9ca3af';

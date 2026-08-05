@@ -115,27 +115,45 @@ export async function fetchCepAddress(cep) {
 }
 
 /**
- * Gera uma estimativa de coordenadas (ou usa geocoding) baseada na cidade/bairro para o mapa
+ * Gera coordenadas precisas buscando o endereço na API de Geocoding do Google Maps
  */
-function assignCoordinates(contactData) {
-  // Gera coordenadas realistas ao redor de São Paulo se não fornecido
-  const baseLat = -23.560000;
-  const baseLng = -46.660000;
-  const offsetLat = (Math.random() - 0.5) * 0.04;
-  const offsetLng = (Math.random() - 0.5) * 0.04;
-  
-  return {
-    lat: contactData.lat || (baseLat + offsetLat),
-    lng: contactData.lng || (baseLng + offsetLng)
-  };
+async function geocodeAddress(contactData) {
+  let lat = null;
+  let lng = null;
+
+  try {
+    if (GOOGLE_MAPS_API_KEY) {
+      const addressString = `${contactData.street}, ${contactData.number}, ${contactData.neighborhood}, ${contactData.city} - ${contactData.state}, ${contactData.cep}`;
+      const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(addressString)}&key=${GOOGLE_MAPS_API_KEY}`);
+      const data = await response.json();
+      
+      if (data.status === 'OK' && data.results.length > 0) {
+        lat = data.results[0].geometry.location.lat;
+        lng = data.results[0].geometry.location.lng;
+      }
+    }
+  } catch (error) {
+    console.warn("Erro ao geocodificar o endereço real. Usando fallback.", error);
+  }
+
+  // Fallback visual espalhado caso falhe (ou não haja chave/endereço inválido)
+  if (!lat || !lng) {
+    const cepNum = parseInt((contactData.cep || '').replace(/\D/g, '')) || 0;
+    lat = -23.55 + ((cepNum % 1000) * 0.0001);
+    lng = -46.63 + ((cepNum % 1000) * 0.0001);
+  }
+
+  return { lat, lng };
 }
 
 /**
  * Adiciona um novo contato / cliente ao banco (Usado pelo Formulário Público e Painel)
  */
 export async function addContact(contactData) {
-  const coords = assignCoordinates(contactData);
-  const formattedAddress = `${contactData.street}, ${contactData.number} - ${contactData.neighborhood}, ${contactData.city} - ${contactData.state}, ${contactData.cep}`;
+  const coords = await geocodeAddress(contactData);
+  
+  const formattedParts = [contactData.street, contactData.number, contactData.neighborhood, contactData.city, contactData.state, contactData.cep].filter(Boolean);
+  const formattedAddress = formattedParts.join(', ');
 
   const payload = {
     ...contactData,
