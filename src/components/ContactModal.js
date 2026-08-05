@@ -78,6 +78,8 @@ export function renderContactModal(contact, onClose, onDelete) {
             <p class="text-sm text-slate-700"><span class="font-medium">Bairro:</span> ${contact.neighborhood}</p>
             <p class="text-sm text-slate-700"><span class="font-medium">Cidade/UF:</span> ${contact.city} - ${contact.state}</p>
           </div>
+        </div>
+
         <!-- Seção Financeiro (Consignações) -->
         <div class="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-5 hidden" id="modal-tab-finance">
           <div class="bg-brand-50 p-4 rounded-xl border border-brand-100 mb-4">
