@@ -3,15 +3,31 @@ import { showToast } from '../components/Toast.js';
 
 let unsubscribeDebts = null;
 let currentDebts = [];
+let selectedSeller = 'all';
 
-export function renderFinanceView(container) {
+export function renderFinanceView(container, user, team) {
+  let filterHtml = '';
+  
+  if (user && user.role === 'admin') {
+    filterHtml = `
+      <div class="mt-4 md:mt-0 flex items-center gap-2">
+        <label for="seller-filter" class="text-sm font-medium text-slate-600">Filtrar por Vendedor:</label>
+        <select id="seller-filter" class="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-brand-500 focus:border-brand-500 block p-2 outline-none">
+          <option value="all">Visão Geral (Todos)</option>
+          ${team.map(member => `<option value="${member.id}">${member.name || member.email.split('@')[0]}</option>`).join('')}
+        </select>
+      </div>
+    `;
+  }
+
   container.innerHTML = `
-    <div class="p-4 md:p-6 lg:p-8 max-w-6xl mx-auto pb-24 md:pb-8">
+    <div class="p-4 md:p-6 lg:p-8 max-w-6xl mx-auto pb-24 md:pb-8 w-full">
       <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 md:mb-8">
         <div>
           <h2 class="text-2xl font-display font-bold text-slate-800">Cobranças e Consignações</h2>
           <p class="text-sm text-slate-500 mt-1">Controle de mercadorias deixadas com clientes e pagamentos pendentes.</p>
         </div>
+        ${filterHtml}
       </div>
 
       <!-- Sumário Financeiro -->
@@ -39,22 +55,33 @@ export function renderFinanceView(container) {
     </div>
   `;
 
+  if (user && user.role === 'admin') {
+    document.getElementById('seller-filter').addEventListener('change', (e) => {
+      selectedSeller = e.target.value;
+      updateFinanceUI(user, team);
+    });
+  }
+
   if (unsubscribeDebts) unsubscribeDebts();
   
-  unsubscribeDebts = subscribeToPendingDebts((debts) => {
+  unsubscribeDebts = subscribeToPendingDebts(user, (debts) => {
     currentDebts = debts;
-    updateFinanceUI();
+    updateFinanceUI(user, team);
   });
 }
 
-function updateFinanceUI() {
+function updateFinanceUI(user, team) {
   const listContainer = document.getElementById('finance-list-container');
   const totalPendingEl = document.getElementById('finance-total-pending');
   const totalClientsEl = document.getElementById('finance-total-clients');
 
   if (!listContainer) return;
 
-  if (currentDebts.length === 0) {
+  const filteredDebts = selectedSeller === 'all' 
+    ? currentDebts 
+    : currentDebts.filter(d => d.ownerId === selectedSeller);
+
+  if (filteredDebts.length === 0) {
     listContainer.innerHTML = `
       <div class="p-12 text-center flex flex-col items-center">
         <div class="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mb-4">
@@ -75,7 +102,7 @@ function updateFinanceUI() {
   let totalValue = 0;
   const uniqueClients = new Set();
 
-  listContainer.innerHTML = currentDebts.map(debt => {
+  listContainer.innerHTML = filteredDebts.map(debt => {
     const remaining = debt.amountTotal - (debt.amountPaid || 0);
     totalValue += remaining;
     uniqueClients.add(debt.contactId);
@@ -88,6 +115,12 @@ function updateFinanceUI() {
     let badgeClass = "bg-emerald-100 text-emerald-700";
     if (diffDays > 15) badgeClass = "bg-amber-100 text-amber-700";
     if (diffDays > 30) badgeClass = "bg-red-100 text-red-700";
+
+    let ownerName = '';
+    if (user && user.role === 'admin' && debt.ownerId && selectedSeller === 'all') {
+      const owner = team.find(u => u.id === debt.ownerId);
+      ownerName = owner ? (owner.name || owner.email.split('@')[0]) : debt.ownerId.substring(0, 8);
+    }
 
     return `
       <div class="p-4 md:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50 transition-colors">
@@ -102,6 +135,12 @@ function updateFinanceUI() {
               <span class="px-2 py-0.5 rounded-full text-xs font-semibold ${badgeClass}">
                 ${diffDays === 0 ? 'Hoje' : `${diffDays} dias atrás`}
               </span>
+              ${ownerName ? `
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border bg-amber-50 text-amber-700 border-amber-200" title="Vendedor">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                ${ownerName}
+              </span>
+              ` : ''}
             </div>
           </div>
         </div>

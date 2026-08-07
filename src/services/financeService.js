@@ -21,13 +21,14 @@ let demoSales = [];
 /**
  * Adiciona uma nova dívida/mercadoria consignada
  */
-export async function addDebt(contactId, contactName, amount) {
+export async function addDebt(contactId, contactName, amount, ownerId = null) {
   const payload = {
     contactId,
     contactName,
     amountTotal: parseFloat(amount),
     amountPaid: 0,
     status: 'pending',
+    ownerId: ownerId,
     createdAt: new Date().toISOString(),
     payments: [] // Histórico opcional
   };
@@ -117,16 +118,29 @@ export function subscribeToClientDebts(contactId, callback) {
 /**
  * Escuta todas as dívidas pendentes do sistema
  */
-export function subscribeToPendingDebts(callback) {
+export function subscribeToPendingDebts(user, callback) {
   if (USE_DEMO_MODE) {
-    callback(demoSales.filter(d => d.status === 'pending').sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)));
+    let filtered = demoSales.filter(d => d.status === 'pending');
+    if (user && user.role !== 'admin') {
+      filtered = filtered.filter(d => d.ownerId === user.uid);
+    }
+    callback(filtered.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)));
     return () => {};
   }
 
-  const q = query(
-    collection(db, COLLECTION_NAME),
-    where("status", "==", "pending")
-  );
+  let q;
+  if (user && user.role !== 'admin') {
+    q = query(
+      collection(db, COLLECTION_NAME),
+      where("status", "==", "pending"),
+      where("ownerId", "==", user.uid)
+    );
+  } else {
+    q = query(
+      collection(db, COLLECTION_NAME),
+      where("status", "==", "pending")
+    );
+  }
 
   return onSnapshot(q, (snapshot) => {
     const debts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));

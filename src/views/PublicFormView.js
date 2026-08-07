@@ -32,6 +32,11 @@ export function renderPublicFormView(container, onSubmit) {
         <!-- Formulário -->
         <form id="public-form" class="p-8 sm:p-10 space-y-6">
           
+          <div class="space-y-2">
+            <label for="nickname" class="block text-sm font-semibold text-slate-700">Apelido (Nome Fantasia)</label>
+            <input type="text" id="nickname" class="w-full px-4 py-3 bg-surface border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all" placeholder="Como prefere ser chamado">
+          </div>
+
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div class="space-y-2">
               <label for="name" class="block text-sm font-semibold text-slate-700">Nome Completo / Razão Social</label>
@@ -171,7 +176,11 @@ export function renderPublicFormView(container, onSubmit) {
     btnSubmit.disabled = true;
     btnSubmit.classList.add('opacity-70', 'cursor-not-allowed');
 
+    const urlParams = new URLSearchParams(window.location.hash.split('?')[1]);
+    const refId = urlParams.get('ref') || null;
+
     const contactData = {
+      nickname: document.getElementById('nickname').value,
       name: document.getElementById('name').value,
       type: document.getElementById('type').value,
       phone: document.getElementById('phone').value,
@@ -184,6 +193,7 @@ export function renderPublicFormView(container, onSubmit) {
       neighborhood: document.getElementById('neighborhood').value,
       city: document.getElementById('city').value,
       state: document.getElementById('state').value.toUpperCase(),
+      ownerId: refId,
       createdAt: new Date().toISOString()
     };
 

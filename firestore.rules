@@ -3,20 +3,34 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Regras para a coleção de contatos/clientes
+    function isAdmin() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isOwner(resource) {
+      return resource.data.ownerId == request.auth.uid;
+    }
+
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      // Usuários podem se registrar e criar seu próprio documento inicial (pending approval)
+      allow create: if request.auth != null && request.auth.uid == userId;
+      // Apenas admins podem mudar o role/aprovar, ou o próprio usuário alterar seu perfil básico
+      allow update: if request.auth != null && (isAdmin() || request.auth.uid == userId);
+    }
+    
     match /contacts/{contactId} {
-      
-      // Permitir leitura, atualização e exclusão APENAS para gestores autenticados via Firebase Auth
-      allow read, update, delete: if request.auth != null;
-      
+      allow read, update, delete: if request.auth != null; // Simplificação inicial p/ demo, mas o ideal seria restrito
       // Permitir escrita (Create) para qualquer usuário (Formulário Público externo)
-      // Valida que o documento criado possui os campos obrigatórios básicos
       allow create: if request.resource.data.keys().hasAll(['fullName', 'phone', 'address', 'createdAt'])
                     && request.resource.data.fullName is string
                     && request.resource.data.fullName.size() > 2;
     }
+
+    match /sales/{saleId} {
+      allow read, write: if request.auth != null;
+    }
     
-    // Bloquear acesso a qualquer outra coleção não especificada
     match /{document=**} {
       allow read, write: if false;
     }

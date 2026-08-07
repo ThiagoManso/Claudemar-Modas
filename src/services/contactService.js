@@ -14,6 +14,7 @@ import {
   onSnapshot, 
   query, 
   orderBy,
+  where,
   serverTimestamp 
 } from 'firebase/firestore';
 
@@ -34,6 +35,7 @@ let demoContacts = [
     birthDate: "1992-05-14",
     lat: -23.561684,
     lng: -46.655981,
+    ownerId: "demo-seller-001",
     createdAt: new Date(Date.now() - 86400000 * 5).toISOString()
   },
   {
@@ -51,6 +53,7 @@ let demoContacts = [
     birthDate: "1985-11-20",
     lat: -23.562947,
     lng: -46.668582,
+    ownerId: "demo-admin-claudemar-001",
     createdAt: new Date(Date.now() - 86400000 * 3).toISOString()
   },
   {
@@ -68,6 +71,7 @@ let demoContacts = [
     birthDate: "1998-03-08",
     lat: -23.555811,
     lng: -46.662194,
+    ownerId: "demo-seller-001",
     createdAt: new Date(Date.now() - 86400000 * 2).toISOString()
   },
   {
@@ -85,6 +89,7 @@ let demoContacts = [
     birthDate: "1990-08-30",
     lat: -23.578135,
     lng: -46.687452,
+    ownerId: "demo-admin-claudemar-001",
     createdAt: new Date(Date.now() - 86400000).toISOString()
   }
 ];
@@ -210,7 +215,12 @@ export async function addContact(contactData) {
       ...payload
     };
     demoContacts.unshift(newContact);
-    subscribers.forEach(cb => cb([...demoContacts]));
+    subscribers.forEach(cb => {
+      // Filtragem correta não é possível perfeitamente aqui porque addContact não sabe qual usuário está escutando, 
+      // mas como demo mode a gente atualiza geral e no subscribeContacts a gente filtra.
+      // Porém, o ideal seria re-executar as callbacks, mas ok, demo.
+      cb([...demoContacts]); 
+    });
     return newContact;
   }
 
@@ -228,56 +238,79 @@ export async function addContact(contactData) {
 }
 
 /**
- * Retorna todos os contatos (Acesso restrito ao Gestor)
+ * Retorna todos os contatos
  */
-export async function getContacts() {
+export async function getContacts(user) {
   if (USE_DEMO_MODE) {
-    return [...demoContacts];
+    return user.role === 'admin' 
+      ? [...demoContacts] 
+      : demoContacts.filter(c => c.ownerId === user.uid);
   }
 
   try {
     const contactsRef = collection(db, 'contacts');
-    const q = query(contactsRef, orderBy('createdAt', 'desc'));
+    const q = user.role === 'admin' 
+      ? query(contactsRef, orderBy('createdAt', 'desc'))
+      : query(contactsRef, where('ownerId', '==', user.uid)); 
+      // Firestore needs index for where + orderBy. We will sort in JS to avoid index requirement errors.
+      
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(docSnap => ({
+    const results = snapshot.docs.map(docSnap => ({
       id: docSnap.id,
       ...docSnap.data()
     }));
+    
+    if (user.role !== 'admin') {
+      results.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+    }
+    return results;
   } catch (error) {
     console.error("Erro ao buscar contatos no Firestore:", error);
-    return [...demoContacts];
+    return [];
   }
 }
 
 /**
  * Inscreve-se em atualizações em tempo real (onSnapshot do Firestore)
  */
-export function subscribeContacts(callback) {
+export function subscribeContacts(user, callback) {
   if (USE_DEMO_MODE) {
-    subscribers.push(callback);
-    setTimeout(() => callback([...demoContacts]), 50);
+    const wrappedCallback = () => {
+      const filtered = user.role === 'admin' ? [...demoContacts] : demoContacts.filter(c => c.ownerId === user.uid);
+      callback(filtered);
+    };
+    subscribers.push(wrappedCallback);
+    setTimeout(wrappedCallback, 50);
     return () => {
-      const index = subscribers.indexOf(callback);
+      const index = subscribers.indexOf(wrappedCallback);
       if (index > -1) subscribers.splice(index, 1);
     };
   }
 
   try {
     const contactsRef = collection(db, 'contacts');
-    const q = query(contactsRef, orderBy('createdAt', 'desc'));
+    const q = user.role === 'admin'
+      ? query(contactsRef, orderBy('createdAt', 'desc'))
+      : query(contactsRef, where('ownerId', '==', user.uid));
+      
     return onSnapshot(q, (snapshot) => {
       const contacts = snapshot.docs.map(docSnap => ({
         id: docSnap.id,
         ...docSnap.data()
       }));
+      
+      if (user.role !== 'admin') {
+        contacts.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+      }
+      
       callback(contacts);
     }, (err) => {
       console.error("Erro em snapshot do Firestore:", err);
-      callback([...demoContacts]);
+      callback([]);
     });
   } catch (err) {
     console.error("Erro em subscribeContacts:", err);
-    callback([...demoContacts]);
+    callback([]);
     return () => {};
   }
 }

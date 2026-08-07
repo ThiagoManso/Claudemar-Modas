@@ -1,8 +1,11 @@
 /**
  * ============================================================================
- * VIEW DE LOGIN DO GESTOR (TAILWIND REFACTOR)
+ * VIEW DE LOGIN E REGISTRO DO GESTOR/EQUIPE
  * ============================================================================
  */
+
+import { registerWithEmail } from '../services/authService.js';
+import { showToast } from '../components/Toast.js';
 
 export function renderLoginView(container, onLogin) {
   container.innerHTML = `
@@ -22,22 +25,24 @@ export function renderLoginView(container, onLogin) {
             </p>
           </div>
           
-          <!-- Elementos decorativos (círculos) -->
           <div class="absolute -bottom-24 -left-24 w-64 h-64 bg-brand-200 rounded-full opacity-50 blur-3xl"></div>
           <div class="absolute -top-24 -right-24 w-64 h-64 bg-brand-200 rounded-full opacity-50 blur-3xl"></div>
         </div>
 
         <!-- Lado Direito (Formulário) -->
-        <div class="w-full md:w-1/2 p-8 sm:p-12">
-          <div class="mb-8">
-            <h2 class="text-2xl font-display font-bold text-slate-800">Acesso ao Painel</h2>
-            <p class="text-slate-500 mt-2">Faça login com suas credenciais de gestor.</p>
+        <div class="w-full md:w-1/2 p-8 sm:p-12 relative">
+          
+          <!-- Tabs -->
+          <div class="flex gap-4 mb-8 border-b border-slate-100 pb-2">
+            <button id="tab-login" class="text-lg font-bold text-brand-600 border-b-2 border-brand-600 pb-2 transition-colors">Entrar</button>
+            <button id="tab-register" class="text-lg font-bold text-slate-400 border-b-2 border-transparent pb-2 hover:text-slate-600 transition-colors">Cadastrar-se</button>
           </div>
 
+          <!-- Form Login -->
           <form id="login-form" class="space-y-6">
             <div class="space-y-2">
-              <label for="email" class="block text-sm font-semibold text-slate-700">E-mail Administrativo</label>
-              <input type="email" id="email" required placeholder="admin@netomodas.com" 
+              <label for="email" class="block text-sm font-semibold text-slate-700">E-mail</label>
+              <input type="email" id="email" required placeholder="seu@email.com" 
                 class="w-full px-4 py-3 bg-surface border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all text-slate-800 placeholder-slate-400" />
             </div>
 
@@ -52,33 +57,76 @@ export function renderLoginView(container, onLogin) {
               <span>Usuário ou senha inválidos.</span>
             </div>
 
-            <button type="submit" id="btn-submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-medium py-3 rounded-xl transition-colors shadow-sm flex items-center justify-center gap-2 mt-4">
+            <button type="submit" id="btn-submit-login" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-medium py-3 rounded-xl transition-colors shadow-sm flex items-center justify-center gap-2 mt-4">
               <span>Entrar no Sistema</span>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
             </button>
           </form>
 
-          <div class="mt-8 pt-6 border-t border-slate-100 text-center">
-            <p class="text-sm text-slate-500">Esqueceu a senha? Contate o suporte técnico.</p>
-          </div>
+          <!-- Form Register -->
+          <form id="register-form" class="space-y-6 hidden">
+            <div class="space-y-2">
+              <label for="reg-name" class="block text-sm font-semibold text-slate-700">Nome Completo</label>
+              <input type="text" id="reg-name" required placeholder="João da Silva" 
+                class="w-full px-4 py-3 bg-surface border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all text-slate-800 placeholder-slate-400" />
+            </div>
+
+            <div class="space-y-2">
+              <label for="reg-email" class="block text-sm font-semibold text-slate-700">E-mail</label>
+              <input type="email" id="reg-email" required placeholder="seu@email.com" 
+                class="w-full px-4 py-3 bg-surface border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all text-slate-800 placeholder-slate-400" />
+            </div>
+
+            <div class="space-y-2">
+              <label for="reg-password" class="block text-sm font-semibold text-slate-700">Senha</label>
+              <input type="password" id="reg-password" required placeholder="Mínimo 6 caracteres" minlength="6"
+                class="w-full px-4 py-3 bg-surface border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all text-slate-800 placeholder-slate-400" />
+            </div>
+
+            <button type="submit" id="btn-submit-register" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-medium py-3 rounded-xl transition-colors shadow-sm flex items-center justify-center gap-2 mt-4">
+              <span>Criar Conta</span>
+            </button>
+          </form>
+
         </div>
       </div>
     </div>
   `;
 
-  const form = document.getElementById('login-form');
+  const formLogin = document.getElementById('login-form');
+  const formRegister = document.getElementById('register-form');
   const errorBox = document.getElementById('login-error');
-  const btnSubmit = document.getElementById('btn-submit');
+  const btnSubmitLogin = document.getElementById('btn-submit-login');
+  const btnSubmitRegister = document.getElementById('btn-submit-register');
+  
+  const tabLogin = document.getElementById('tab-login');
+  const tabRegister = document.getElementById('tab-register');
 
-  form.addEventListener('submit', async (e) => {
+  // Toggle Tabs
+  tabLogin.addEventListener('click', () => {
+    formLogin.classList.remove('hidden');
+    formRegister.classList.add('hidden');
+    tabLogin.classList.add('text-brand-600', 'border-brand-600');
+    tabLogin.classList.remove('text-slate-400', 'border-transparent');
+    tabRegister.classList.add('text-slate-400', 'border-transparent');
+    tabRegister.classList.remove('text-brand-600', 'border-brand-600');
+  });
+
+  tabRegister.addEventListener('click', () => {
+    formRegister.classList.remove('hidden');
+    formLogin.classList.add('hidden');
+    tabRegister.classList.add('text-brand-600', 'border-brand-600');
+    tabRegister.classList.remove('text-slate-400', 'border-transparent');
+    tabLogin.classList.add('text-slate-400', 'border-transparent');
+    tabLogin.classList.remove('text-brand-600', 'border-brand-600');
+  });
+
+  formLogin.addEventListener('submit', async (e) => {
     e.preventDefault();
     errorBox.classList.add('hidden');
     
-    // Feedback visual do botão
-    const originalContent = btnSubmit.innerHTML;
-    btnSubmit.innerHTML = `<div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div><span>Autenticando...</span>`;
-    btnSubmit.disabled = true;
-    btnSubmit.classList.add('opacity-70', 'cursor-not-allowed');
+    const originalContent = btnSubmitLogin.innerHTML;
+    btnSubmitLogin.innerHTML = `<div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>`;
+    btnSubmitLogin.disabled = true;
 
     const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
@@ -87,9 +135,30 @@ export function renderLoginView(container, onLogin) {
     
     if (!success) {
       errorBox.classList.remove('hidden');
-      btnSubmit.innerHTML = originalContent;
-      btnSubmit.disabled = false;
-      btnSubmit.classList.remove('opacity-70', 'cursor-not-allowed');
+      btnSubmitLogin.innerHTML = originalContent;
+      btnSubmitLogin.disabled = false;
+    }
+  });
+
+  formRegister.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const originalContent = btnSubmitRegister.innerHTML;
+    btnSubmitRegister.innerHTML = `<div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>`;
+    btnSubmitRegister.disabled = true;
+
+    const name = document.getElementById('reg-name').value;
+    const email = document.getElementById('reg-email').value;
+    const password = document.getElementById('reg-password').value;
+    
+    try {
+      await registerWithEmail(email, password, name);
+      showToast('Conta criada com sucesso! Aguarde aprovação (ou faça login).', 'success');
+      // A própria mudança no onAuthStateChanged (disparada pelo login automático após registro) fará o redirecionamento
+    } catch(err) {
+      showToast('Erro ao criar conta: ' + err.message, 'error');
+      btnSubmitRegister.innerHTML = originalContent;
+      btnSubmitRegister.disabled = false;
     }
   });
 }

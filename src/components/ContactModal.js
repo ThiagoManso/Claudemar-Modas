@@ -30,6 +30,7 @@ export function renderContactModal(contact, onClose, onDelete) {
             </div>
             <div>
               <h2 class="text-xl font-display font-bold text-slate-800 tracking-tight leading-tight">${contact.name}</h2>
+              ${contact.nickname ? `<p class="text-sm text-slate-500 font-medium">${contact.nickname}</p>` : ''}
               <span class="inline-flex mt-1 items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${typeClass}">
                 ${typeText}
               </span>

@@ -7,7 +7,7 @@
 import { formatCEP } from '../services/contactService.js';
 import { renderContactModal } from '../components/ContactModal.js';
 
-export function renderContactListView(container, contacts, onDeleteContact) {
+export function renderContactListView(container, contacts, currentUser, currentTeam, onDeleteContact) {
   let searchTerm = '';
   
   const updateList = () => {
@@ -16,6 +16,7 @@ export function renderContactListView(container, contacts, onDeleteContact) {
 
     const filtered = contacts.filter(c => 
       c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.nickname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       c.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       c.phone.includes(searchTerm)
     );
@@ -40,6 +41,12 @@ export function renderContactListView(container, contacts, onDeleteContact) {
         : 'bg-purple-50 text-purple-700 border-purple-200';
       const typeText = isCliente ? 'Cliente' : 'Fornecedor';
 
+      let ownerName = '';
+      if (currentUser && currentUser.role === 'admin' && contact.ownerId) {
+        const owner = currentTeam.find(u => u.id === contact.ownerId);
+        ownerName = owner ? (owner.name || owner.email.split('@')[0]) : contact.ownerId.substring(0, 8);
+      }
+
       return `
         <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md transition-shadow group relative flex flex-col h-full cursor-pointer" data-id="${contact.id}">
           
@@ -50,9 +57,18 @@ export function renderContactListView(container, contacts, onDeleteContact) {
               </div>
               <div>
                 <h3 class="text-slate-800 font-bold font-display leading-tight truncate max-w-[150px] sm:max-w-[180px]">${contact.name}</h3>
-                <span class="inline-flex mt-1 items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${badgeClass}">
-                  ${typeText}
-                </span>
+                ${contact.nickname ? `<p class="text-xs text-slate-500 font-medium truncate max-w-[150px] sm:max-w-[180px]">${contact.nickname}</p>` : ''}
+                <div class="flex flex-wrap gap-1 mt-1">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${badgeClass}">
+                    ${typeText}
+                  </span>
+                  ${ownerName ? `
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border bg-amber-50 text-amber-700 border-amber-200" title="Cadastrado por">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    ${ownerName}
+                  </span>
+                  ` : ''}
+                </div>
               </div>
             </div>
             

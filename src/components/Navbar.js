@@ -9,7 +9,6 @@ import { showToast } from './Toast.js';
 
 let deferredPrompt = null;
 
-// Escuta o evento de instalação nativo do Android / Chrome
 if (typeof window !== 'undefined') {
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
@@ -62,15 +61,30 @@ export function renderNavbar(currentView, user, onNavigate, onLogout) {
                 <line x1="12" y1="1" x2="12" y2="23"></line>
                 <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
               </svg>
-              Cobranças
+              Receitas
             </a>
-            <button id="btn-copy-public-link" class="px-3 py-2 rounded-lg font-medium text-sm text-slate-500 hover:text-brand-600 hover:bg-surface flex items-center gap-2 transition-colors outline-none" title="Copiar link do formulário">
+            <a href="#despesas" data-nav="despesas" class="px-3 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors ${getActiveClasses('despesas')}">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"></path></svg>
+              Despesas
+            </a>
+            ${user.role === 'admin' ? `
+            <a href="#equipe" data-nav="equipe" class="px-3 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors ${getActiveClasses('equipe')}">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+              Equipe
+            </a>
+            ` : ''}
+            <button id="btn-copy-public-link" data-uid="${user.uid}" class="px-3 py-2 rounded-lg font-medium text-sm text-slate-500 hover:text-brand-600 hover:bg-surface flex items-center gap-2 transition-colors outline-none" title="Copiar link do formulário">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
                 <polyline points="15 3 21 3 21 9"></polyline>
                 <line x1="10" y1="14" x2="21" y2="3"></line>
               </svg>
-              Link Público
+              Seu Link
             </button>
           </nav>
         ` : ''}
@@ -90,13 +104,20 @@ export function renderNavbar(currentView, user, onNavigate, onLogout) {
           <div class="flex items-center gap-3 pl-3 sm:border-l border-slate-200">
             <div class="hidden sm:flex items-center gap-2">
               <div class="w-8 h-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center font-bold text-sm">
-                ${(user.email || 'G').charAt(0).toUpperCase()}
+                ${(user.displayName || user.email || 'U').charAt(0).toUpperCase()}
               </div>
               <span class="text-sm font-medium text-slate-700 truncate max-w-[120px]">
                 ${user.displayName || user.email.split('@')[0]}
               </span>
+              <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-md ${user.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}">
+                ${user.role === 'admin' ? 'Admin' : 'Vendedor'}
+              </span>
             </div>
-            <button id="btn-logout" class="text-sm font-medium text-slate-500 hover:text-red-600 transition-colors px-2 py-1 rounded">Sair</button>
+            <button id="btn-logout" class="text-sm font-medium text-slate-500 hover:text-red-600 transition-colors px-2 py-1 rounded hidden sm:block">Sair</button>
+            
+            <button id="btn-mobile-menu" class="md:hidden p-2 text-slate-500 hover:text-brand-600 transition-colors">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+            </button>
           </div>
         ` : `
           <a href="#cadastro" class="px-4 py-2 bg-brand-50 text-brand-700 font-medium text-sm rounded-lg hover:bg-brand-100 transition-colors ml-2 hidden sm:block">
@@ -106,40 +127,62 @@ export function renderNavbar(currentView, user, onNavigate, onLogout) {
       </div>
     </header>
     
-    <!-- Mobile Bottom Nav (visível apenas em telas pequenas e se logado) -->
+    <!-- Mobile Menu Overlay -->
     ${user ? `
-      <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-40 flex items-center justify-around h-16 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] pb-safe">
-        <a href="#admin" data-nav="admin" class="flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${currentView === 'admin' ? 'text-brand-600' : 'text-slate-400 hover:text-slate-600'}">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-            <circle cx="9" cy="7" r="4"></circle>
-          </svg>
-          <span class="text-[10px] font-medium">Clientes</span>
-        </a>
-        <a href="#mapa" data-nav="mapa" class="flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${currentView === 'mapa' ? 'text-brand-600' : 'text-slate-400 hover:text-slate-600'}">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
-            <line x1="8" y1="2" x2="8" y2="18"></line>
-            <line x1="16" y1="6" x2="16" y2="22"></line>
-          </svg>
-          <span class="text-[10px] font-medium">Mapa</span>
-        </a>
-        <a href="#cobrancas" data-nav="cobrancas" class="flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${currentView === 'cobrancas' ? 'text-brand-600' : 'text-slate-400 hover:text-slate-600'}">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="12" y1="1" x2="12" y2="23"></line>
-            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-          </svg>
-          <span class="text-[10px] font-medium">Cobranças</span>
-        </a>
-        <button id="btn-copy-public-link-mobile" class="flex flex-col items-center justify-center w-full h-full gap-1 transition-colors text-slate-400 hover:text-brand-600">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-            <polyline points="15 3 21 3 21 9"></polyline>
-            <line x1="10" y1="14" x2="21" y2="3"></line>
-          </svg>
-          <span class="text-[10px] font-medium">Link</span>
-        </button>
-      </nav>
+      <div id="mobile-menu-overlay" class="fixed inset-0 bg-slate-900/50 z-50 hidden transition-opacity">
+        <div id="mobile-menu-panel" class="absolute top-0 right-0 w-64 h-full bg-white shadow-xl transform translate-x-full transition-transform duration-300 flex flex-col">
+          <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+             <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center font-bold text-sm">
+                  ${(user.displayName || user.email || 'U').charAt(0).toUpperCase()}
+                </div>
+                <span class="text-sm font-medium text-slate-700 truncate max-w-[120px]">
+                  ${user.displayName || user.email.split('@')[0]}
+                </span>
+             </div>
+             <button id="btn-close-mobile-menu" class="p-2 text-slate-400 hover:text-slate-600">
+               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+             </button>
+          </div>
+          
+          <nav class="flex-1 p-4 flex flex-col gap-2 overflow-y-auto">
+            <a href="#admin" class="p-3 rounded-lg flex items-center gap-3 ${currentView === 'admin' ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50'}">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
+              Clientes
+            </a>
+            <a href="#mapa" class="p-3 rounded-lg flex items-center gap-3 ${currentView === 'mapa' ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50'}">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg>
+              Mapa
+            </a>
+            <div class="pt-4 pb-2 text-xs font-bold text-slate-400 uppercase tracking-wider">Finanças</div>
+            <a href="#cobrancas" class="p-3 rounded-lg flex items-center gap-3 ${currentView === 'cobrancas' ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50'}">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+              Receitas / Cobranças
+            </a>
+            <a href="#despesas" class="p-3 rounded-lg flex items-center gap-3 ${currentView === 'despesas' ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50'}">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"></path></svg>
+              Despesas a Pagar
+            </a>
+            
+            ${user.role === 'admin' ? `
+            <div class="pt-4 pb-2 text-xs font-bold text-slate-400 uppercase tracking-wider">Gestão</div>
+            <a href="#equipe" class="p-3 rounded-lg flex items-center gap-3 ${currentView === 'equipe' ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50'}">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+              Equipe
+            </a>
+            ` : ''}
+            
+            <div class="pt-4 pb-2 text-xs font-bold text-slate-400 uppercase tracking-wider">Ações</div>
+            <button id="btn-copy-public-link-mobile" data-uid="${user.uid}" class="w-full p-3 rounded-lg flex items-center gap-3 text-slate-600 hover:bg-slate-50 text-left">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+              Link do Formulário
+            </button>
+            <button id="btn-logout-mobile" class="w-full p-3 rounded-lg flex items-center gap-3 text-red-600 hover:bg-red-50 text-left mt-auto border border-red-100">
+              Sair da Conta
+            </button>
+          </nav>
+        </div>
+      </div>
     ` : ''}
   `;
 }
@@ -150,6 +193,13 @@ export function bindNavbarEvents(onLogout) {
 
   if (logoutBtn) {
     logoutBtn.addEventListener('click', () => {
+      if (onLogout) onLogout();
+    });
+  }
+
+  const logoutMobileBtn = document.getElementById('btn-logout-mobile');
+  if (logoutMobileBtn) {
+    logoutMobileBtn.addEventListener('click', () => {
       if (onLogout) onLogout();
     });
   }
@@ -169,10 +219,11 @@ export function bindNavbarEvents(onLogout) {
     });
   }
 
-  const copyLinkLogic = () => {
-    const publicUrl = window.location.origin + window.location.pathname + '#cadastro';
+  const copyLinkLogic = (e) => {
+    const uid = e.currentTarget.getAttribute('data-uid') || '';
+    const publicUrl = window.location.origin + window.location.pathname + '#cadastro' + (uid ? '?ref=' + uid : '');
     navigator.clipboard?.writeText(publicUrl);
-    showToast('Link público copiado: ' + publicUrl, 'success');
+    showToast('Seu link exclusivo copiado: ' + publicUrl, 'success');
   };
 
   const copyLinkBtn = document.getElementById('btn-copy-public-link');
@@ -180,4 +231,37 @@ export function bindNavbarEvents(onLogout) {
   
   const copyLinkBtnMobile = document.getElementById('btn-copy-public-link-mobile');
   if (copyLinkBtnMobile) copyLinkBtnMobile.addEventListener('click', copyLinkLogic);
+  
+  // Lógica do Menu Mobile
+  const overlay = document.getElementById('mobile-menu-overlay');
+  const panel = document.getElementById('mobile-menu-panel');
+  const openMenuBtn = document.getElementById('btn-mobile-menu');
+  const closeMenuBtn = document.getElementById('btn-close-mobile-menu');
+  
+  const openMenu = () => {
+    if (overlay && panel) {
+      overlay.classList.remove('hidden');
+      setTimeout(() => panel.classList.remove('translate-x-full'), 10); // animation tick
+    }
+  };
+  
+  const closeMenu = () => {
+    if (overlay && panel) {
+      panel.classList.add('translate-x-full');
+      setTimeout(() => overlay.classList.add('hidden'), 300);
+    }
+  };
+  
+  if (openMenuBtn) openMenuBtn.addEventListener('click', openMenu);
+  if (closeMenuBtn) closeMenuBtn.addEventListener('click', closeMenu);
+  if (overlay) overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeMenu();
+  });
+  
+  // Fecha ao clicar num link
+  if (panel) {
+    panel.querySelectorAll('a').forEach(link => {
+      link.addEventListener('click', closeMenu);
+    });
+  }
 }
