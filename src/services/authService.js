@@ -99,13 +99,15 @@ export function onAuthChange(callback) {
       userProfileUnsubscribe = onSnapshot(doc(db, 'users', user.uid), (userDoc) => {
         if (userDoc.exists()) {
           const data = userDoc.data();
-          user.role = data.role || 'pending';
+          const isSuperAdmin = user.email === 'thiago.manso@orkestriaos.com.br';
+          user.role = isSuperAdmin ? 'admin' : (data.role || 'pending');
           user.displayName = data.name || user.email;
         } else {
-          // Se for o admin original/antigo (criado antes do novo sistema de roles)
+          // Se for o admin original/antigo (criado antes do novo sistema de roles) ou o super admin
           const creationDate = new Date(user.metadata.creationTime).getTime();
           const isLegacy = creationDate < new Date('2026-08-01').getTime();
-          user.role = isLegacy ? 'admin' : 'pending';
+          const isSuperAdmin = user.email === 'thiago.manso@orkestriaos.com.br';
+          user.role = (isLegacy || isSuperAdmin) ? 'admin' : 'pending';
         }
         callback(user);
       }, (err) => {
