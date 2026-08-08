@@ -40,7 +40,7 @@ export function renderNavbar(currentView, user, onNavigate, onLogout) {
         </a>
 
         ${user && user.role !== 'pending' ? `
-          <nav class="hidden md:flex items-center gap-1">
+          <nav class="hidden xl:flex items-center gap-1">
             <a href="#admin" data-nav="admin" class="px-3 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors ${getActiveClasses('admin')}">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
@@ -116,7 +116,8 @@ export function renderNavbar(currentView, user, onNavigate, onLogout) {
             <button id="btn-logout" class="text-sm font-medium text-slate-500 hover:text-red-600 transition-colors px-2 py-1 rounded hidden sm:block">Sair</button>
             
             ${user.role !== 'pending' ? `
-            <button id="btn-mobile-menu" class="md:hidden p-2 text-slate-500 hover:text-brand-600 transition-colors">
+            <button id="btn-mobile-menu" class="p-2 text-slate-500 hover:text-brand-600 transition-colors flex items-center gap-2 bg-slate-50 rounded-lg border border-slate-200 xl:hidden">
+              <span class="text-sm font-semibold hidden sm:block">Menu</span>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
             </button>
             ` : ''}
