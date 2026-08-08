@@ -48,11 +48,13 @@ export async function registerWithEmail(email, password, name) {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
     
-    // Criar perfil como pendente no Firestore
+    const isSuperAdmin = email && email.trim().toLowerCase() === 'thiago.manso@orkestriaos.com.br';
+    
+    // Criar perfil como pendente no Firestore (ou admin se for super admin)
     await setDoc(doc(db, 'users', user.uid), {
       name: name,
       email: email,
-      role: 'pending', // Usuário aguarda aprovação
+      role: isSuperAdmin ? 'admin' : 'pending', // Usuário aguarda aprovação
       createdAt: new Date().toISOString()
     });
 
@@ -99,20 +101,21 @@ export function onAuthChange(callback) {
       userProfileUnsubscribe = onSnapshot(doc(db, 'users', user.uid), (userDoc) => {
         if (userDoc.exists()) {
           const data = userDoc.data();
-          const isSuperAdmin = user.email === 'thiago.manso@orkestriaos.com.br';
+          const isSuperAdmin = user.email && user.email.trim().toLowerCase() === 'thiago.manso@orkestriaos.com.br';
           user.role = isSuperAdmin ? 'admin' : (data.role || 'pending');
           user.displayName = data.name || user.email;
         } else {
           // Se for o admin original/antigo (criado antes do novo sistema de roles) ou o super admin
           const creationDate = new Date(user.metadata.creationTime).getTime();
           const isLegacy = creationDate < new Date('2026-08-01').getTime();
-          const isSuperAdmin = user.email === 'thiago.manso@orkestriaos.com.br';
+          const isSuperAdmin = user.email && user.email.trim().toLowerCase() === 'thiago.manso@orkestriaos.com.br';
           user.role = (isLegacy || isSuperAdmin) ? 'admin' : 'pending';
         }
         callback(user);
       }, (err) => {
         console.error("Erro ao escutar perfil do usuário", err);
-        user.role = 'pending';
+        const isSuperAdmin = user.email && user.email.trim().toLowerCase() === 'thiago.manso@orkestriaos.com.br';
+        user.role = isSuperAdmin ? 'admin' : 'pending';
         callback(user);
       });
     } else {
