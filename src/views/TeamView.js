@@ -61,7 +61,8 @@ export function renderTeamView(container, users) {
                   <td class="p-4 text-slate-600">${user.email}</td>
                   <td class="p-4">
                     <select onchange="handleUpdateRole('${user.id}', this.value)"
-                      class="bg-surface border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-brand-500 focus:border-brand-500 block w-full p-2">
+                      class="bg-surface border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-brand-500 focus:border-brand-500 block w-full p-2 ${user.role === 'pending' ? 'bg-amber-50 text-amber-700 font-semibold' : ''}">
+                      <option value="pending" ${user.role === 'pending' ? 'selected' : ''}>Aguardando Aprovação</option>
                       <option value="seller" ${user.role === 'seller' ? 'selected' : ''}>Vendedor</option>
                       <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Administrador</option>
                     </select>

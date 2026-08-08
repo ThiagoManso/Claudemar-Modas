@@ -6,11 +6,12 @@
 
 import { auth, db, USE_DEMO_MODE } from '../config/firebase.js';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 
 // Estado em Modo Demo
 let demoUser = null;
 const authListeners = [];
+let userProfileUnsubscribe = null;
 
 export async function loginWithEmail(email, password) {
   if (USE_DEMO_MODE) {
@@ -47,11 +48,11 @@ export async function registerWithEmail(email, password, name) {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
     
-    // Criar perfil padrão de vendedor no Firestore
+    // Criar perfil como pendente no Firestore
     await setDoc(doc(db, 'users', user.uid), {
       name: name,
       email: email,
-      role: 'seller', // Por padrão, entra como vendedor
+      role: 'pending', // Usuário aguarda aprovação
       createdAt: new Date().toISOString()
     });
 
@@ -68,6 +69,12 @@ export async function logout() {
     authListeners.forEach(cb => cb(null));
     return;
   }
+  
+  if (userProfileUnsubscribe) {
+    userProfileUnsubscribe();
+    userProfileUnsubscribe = null;
+  }
+  
   return await signOut(auth);
 }
 
@@ -81,24 +88,34 @@ export function onAuthChange(callback) {
     };
   }
 
-  return onAuthStateChanged(auth, async (user) => {
+  return onAuthStateChanged(auth, (user) => {
+    if (userProfileUnsubscribe) {
+      userProfileUnsubscribe();
+      userProfileUnsubscribe = null;
+    }
+
     if (user) {
-      // Buscar o perfil do usuário para saber se é admin ou seller
-      try {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
+      // Escutar perfil para atualização de acesso em tempo real
+      userProfileUnsubscribe = onSnapshot(doc(db, 'users', user.uid), (userDoc) => {
         if (userDoc.exists()) {
           const data = userDoc.data();
-          user.role = data.role || 'seller';
+          user.role = data.role || 'pending';
           user.displayName = data.name || user.email;
         } else {
-          user.role = 'admin'; // Se não tem perfil, assume que é o admin legado para não quebrar o sistema atual
+          // Se for o admin original/antigo (criado antes do novo sistema de roles)
+          const creationDate = new Date(user.metadata.creationTime).getTime();
+          const isLegacy = creationDate < new Date('2026-08-01').getTime();
+          user.role = isLegacy ? 'admin' : 'pending';
         }
-      } catch (err) {
-        console.error("Erro ao buscar perfil do usuário", err);
-        user.role = 'seller'; // Fallback
-      }
+        callback(user);
+      }, (err) => {
+        console.error("Erro ao escutar perfil do usuário", err);
+        user.role = 'pending';
+        callback(user);
+      });
+    } else {
+      callback(null);
     }
-    callback(user);
   });
 }
 

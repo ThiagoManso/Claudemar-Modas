@@ -16,59 +16,84 @@ import { renderPublicFormView } from './views/PublicFormView.js';
 import { renderFinanceView, destroyFinanceView } from './views/FinanceView.js';
 import { renderPayablesView, destroyPayablesView } from './views/PayablesView.js';
 import { renderTeamView } from './views/TeamView.js';
+import { renderPendingView } from './views/PendingView.js';
 import { showToast } from './components/Toast.js';
 
 // Estado global do aplicativo
 let currentUser = null;
 let currentContacts = [];
 let currentTeam = [];
-let currentView = 'admin'; // 'admin', 'mapa', 'login', 'cadastro', 'financeiro', 'equipe'
+let currentView = 'admin'; // 'admin', 'mapa', 'login', 'cadastro', 'cobrancas', 'despesas', 'equipe', 'pendente'
 let unsubscribeContacts = null;
 let unsubscribeTeam = null;
 
 const appContainer = document.getElementById('app');
 
+function handleHashChange() {
+  const hash = window.location.hash.substring(1) || 'admin';
+  
+  if (hash === 'cadastro') {
+    currentView = 'cadastro';
+  } else if (currentUser && currentUser.role === 'pending') {
+    currentView = 'pendente';
+    if (window.location.hash !== '#pendente') {
+      window.location.hash = '#pendente';
+    }
+  } else if (hash === 'mapa') {
+    currentView = !currentUser ? 'login' : 'mapa';
+  } else if (hash === 'cobrancas') {
+    currentView = !currentUser ? 'login' : 'cobrancas';
+  } else if (hash === 'despesas') {
+    currentView = !currentUser ? 'login' : 'despesas';
+  } else if (hash === 'equipe') {
+    currentView = !currentUser || currentUser.role !== 'admin' ? 'admin' : 'equipe';
+  } else if (hash === 'login') {
+    currentView = currentUser ? 'admin' : 'login';
+  } else {
+    currentView = !currentUser ? 'login' : 'admin';
+  }
+
+  renderCurrentView();
+}
+
 /**
  * Inicialização Principal do CRM
  */
 function initApp() {
-  const hash = window.location.hash.replace('#', '');
-  if (hash === 'cadastro') {
-    currentView = 'cadastro';
-  } else if (hash === 'mapa') {
-    currentView = 'mapa';
-  } else if (hash === 'cobrancas') {
-    currentView = 'cobrancas';
-  } else if (hash === 'despesas') {
-    currentView = 'despesas';
-  } else if (hash === 'equipe') {
-    currentView = 'equipe';
-  } else if (hash === 'login') {
-    currentView = 'login';
-  } else {
-    currentView = 'admin';
-  }
-
   window.addEventListener('hashchange', handleHashChange);
-
+  
   onAuthChange((user) => {
     currentUser = user;
     
-    if (!user && (currentView === 'admin' || currentView === 'mapa' || currentView === 'cobrancas' || currentView === 'despesas' || currentView === 'equipe')) {
+    // Se o usuário está pendente e não está no cadastro, força a view pendente
+    if (user && user.role === 'pending' && currentView !== 'cadastro' && currentView !== 'pendente') {
+      currentView = 'pendente';
+      window.location.hash = '#pendente';
+    } 
+    // Se não estiver logado e tentar acessar área restrita
+    else if (!user && (currentView === 'admin' || currentView === 'mapa' || currentView === 'cobrancas' || currentView === 'despesas' || currentView === 'equipe' || currentView === 'pendente')) {
       currentView = 'login';
       window.location.hash = '#login';
-    } else if (user && currentView === 'login') {
+    } 
+    // Se estiver logado, não for pending, e tentar acessar o login
+    else if (user && user.role !== 'pending' && currentView === 'login') {
       currentView = 'admin';
       window.location.hash = '#admin';
     }
 
-    if (user && !unsubscribeContacts) {
+    if (user && !unsubscribeContacts && user.role !== 'pending') {
       unsubscribeContacts = subscribeContacts(user, (contacts) => {
         currentContacts = contacts;
         if (currentView === 'admin' || currentView === 'mapa' || currentView === 'cobrancas' || currentView === 'despesas') {
           renderCurrentView();
         }
       });
+    } else if (!user || user.role === 'pending') {
+      if (unsubscribeContacts) {
+        unsubscribeContacts();
+        unsubscribeContacts = null;
+      }
+      currentContacts = [];
     }
 
     if (user && user.role === 'admin' && !unsubscribeTeam) {
@@ -85,26 +110,13 @@ function initApp() {
 
     renderCurrentView();
   });
-}
-
-function handleHashChange() {
-  const hash = window.location.hash.replace('#', '');
-  if (hash === 'cadastro') {
-    currentView = 'cadastro';
-  } else if (hash === 'mapa') {
-    currentView = !currentUser ? 'login' : 'mapa';
-  } else if (hash === 'cobrancas') {
-    currentView = !currentUser ? 'login' : 'cobrancas';
-  } else if (hash === 'despesas') {
-    currentView = !currentUser ? 'login' : 'despesas';
-  } else if (hash === 'equipe') {
-    currentView = !currentUser || currentUser.role !== 'admin' ? 'admin' : 'equipe';
-  } else if (hash === 'login') {
-    currentView = currentUser ? 'admin' : 'login';
+  
+  // Tratamento inicial se já tiver uma hash ao carregar a página sem estar logado
+  if (!window.location.hash) {
+    window.location.hash = '#admin';
   } else {
-    currentView = !currentUser ? 'login' : 'admin';
+    handleHashChange();
   }
-  renderCurrentView();
 }
 
 /**
@@ -149,6 +161,11 @@ function renderCurrentView() {
         return false;
       }
     });
+    return;
+  }
+  
+  if (currentView === 'pendente') {
+    renderPendingView(viewContainer, handleLogout);
     return;
   }
 

@@ -39,7 +39,7 @@ export function renderNavbar(currentView, user, onNavigate, onLogout) {
           </span>
         </a>
 
-        ${user ? `
+        ${user && user.role !== 'pending' ? `
           <nav class="hidden md:flex items-center gap-1">
             <a href="#admin" data-nav="admin" class="px-3 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors ${getActiveClasses('admin')}">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -109,15 +109,17 @@ export function renderNavbar(currentView, user, onNavigate, onLogout) {
               <span class="text-sm font-medium text-slate-700 truncate max-w-[120px]">
                 ${user.displayName || user.email.split('@')[0]}
               </span>
-              <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-md ${user.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}">
-                ${user.role === 'admin' ? 'Admin' : 'Vendedor'}
+              <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-md ${user.role === 'admin' ? 'bg-purple-100 text-purple-700' : user.role === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}">
+                ${user.role === 'admin' ? 'Admin' : user.role === 'pending' ? 'Pendente' : 'Vendedor'}
               </span>
             </div>
             <button id="btn-logout" class="text-sm font-medium text-slate-500 hover:text-red-600 transition-colors px-2 py-1 rounded hidden sm:block">Sair</button>
             
+            ${user.role !== 'pending' ? `
             <button id="btn-mobile-menu" class="md:hidden p-2 text-slate-500 hover:text-brand-600 transition-colors">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
             </button>
+            ` : ''}
           </div>
         ` : `
           <a href="#cadastro" class="px-4 py-2 bg-brand-50 text-brand-700 font-medium text-sm rounded-lg hover:bg-brand-100 transition-colors ml-2 hidden sm:block">
@@ -128,7 +130,7 @@ export function renderNavbar(currentView, user, onNavigate, onLogout) {
     </header>
     
     <!-- Mobile Menu Overlay -->
-    ${user ? `
+    ${user && user.role !== 'pending' ? `
       <div id="mobile-menu-overlay" class="fixed inset-0 bg-slate-900/50 z-50 hidden transition-opacity">
         <div id="mobile-menu-panel" class="absolute top-0 right-0 w-64 h-full bg-white shadow-xl transform translate-x-full transition-transform duration-300 flex flex-col">
           <div class="p-4 border-b border-slate-100 flex items-center justify-between">
