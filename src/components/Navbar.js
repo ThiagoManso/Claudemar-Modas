@@ -40,7 +40,7 @@ export function renderNavbar(currentView, user, onNavigate, onLogout) {
         </a>
 
         ${user && user.role !== 'pending' ? `
-          <nav class="hidden xl:flex items-center gap-1">
+          <nav class="hidden lg:flex items-center gap-1">
             <a href="#admin" data-nav="admin" class="px-3 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors ${getActiveClasses('admin')}">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
@@ -78,14 +78,6 @@ export function renderNavbar(currentView, user, onNavigate, onLogout) {
               Equipe
             </a>
             ` : ''}
-            <button id="btn-copy-public-link" data-uid="${user.uid}" class="px-3 py-2 rounded-lg font-medium text-sm text-slate-500 hover:text-brand-600 hover:bg-surface flex items-center gap-2 transition-colors outline-none" title="Copiar link do formulário">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                <polyline points="15 3 21 3 21 9"></polyline>
-                <line x1="10" y1="14" x2="21" y2="3"></line>
-              </svg>
-              Seu Link
-            </button>
           </nav>
         ` : ''}
       </div>
@@ -96,34 +88,25 @@ export function renderNavbar(currentView, user, onNavigate, onLogout) {
           Instalar App
         </button>
 
-        <span class="px-2 py-1 border text-xs font-semibold rounded-full ${modeClass} hidden sm:block">
-          ${modeText}
-        </span>
-
         ${user ? `
-          <div class="flex items-center gap-3 pl-3 sm:border-l border-slate-200">
-            <div class="hidden sm:flex items-center gap-2">
+          <div class="flex items-center gap-3 pl-3 border-l border-slate-200">
+            <div class="flex items-center gap-2">
               <div class="w-8 h-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center font-bold text-sm">
                 ${(user.displayName || user.email || 'U').charAt(0).toUpperCase()}
               </div>
-              <span class="text-sm font-medium text-slate-700 truncate max-w-[120px]">
-                ${user.displayName || user.email.split('@')[0]}
-              </span>
-              <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-md ${user.role === 'admin' ? 'bg-purple-100 text-purple-700' : user.role === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}">
-                ${user.role === 'admin' ? 'Admin' : user.role === 'pending' ? 'Pendente' : 'Vendedor'}
-              </span>
             </div>
-            <button id="btn-logout" class="text-sm font-medium text-slate-500 hover:text-red-600 transition-colors px-2 py-1 rounded hidden sm:block">Sair</button>
             
             ${user.role !== 'pending' ? `
-            <button id="btn-mobile-menu" class="p-2 text-slate-500 hover:text-brand-600 transition-colors flex items-center gap-2 bg-slate-50 rounded-lg border border-slate-200 xl:hidden">
-              <span class="text-sm font-semibold hidden sm:block">Menu</span>
+            <button id="btn-mobile-menu" class="p-2 text-slate-700 hover:text-brand-600 transition-colors flex items-center gap-2 bg-slate-100 rounded-lg border border-slate-200">
+              <span class="text-sm font-semibold">Menu</span>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
             </button>
             ` : ''}
+            
+            <button id="btn-logout" class="text-sm font-medium text-slate-500 hover:text-red-600 transition-colors px-2 py-1 rounded">Sair</button>
           </div>
         ` : `
-          <a href="#cadastro" class="px-4 py-2 bg-brand-50 text-brand-700 font-medium text-sm rounded-lg hover:bg-brand-100 transition-colors ml-2 hidden sm:block">
+          <a href="#cadastro" class="px-4 py-2 bg-brand-50 text-brand-700 font-medium text-sm rounded-lg hover:bg-brand-100 transition-colors ml-2">
             Formulário Cliente
           </a>
         `}
