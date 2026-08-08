@@ -109,9 +109,19 @@ export function onAuthChange(callback) {
           const creationDate = new Date(user.metadata.creationTime).getTime();
           const isLegacy = creationDate < new Date('2026-08-01').getTime();
           const isSuperAdmin = user.email && user.email.trim().toLowerCase() === 'thiago.manso@orkestriaos.com.br';
-          user.role = (isLegacy || isSuperAdmin) ? 'admin' : 'pending';
+          const assignedRole = (isLegacy || isSuperAdmin) ? 'admin' : 'pending';
+          user.role = assignedRole;
+          
+          // Auto-criar o documento faltante para que ele apareça na Gestão de Equipe
+          setDoc(doc(db, 'users', user.uid), {
+            name: user.displayName || user.email,
+            email: user.email,
+            role: assignedRole,
+            createdAt: new Date().toISOString()
+          }).catch(err => console.error("Erro ao auto-criar documento do usuário:", err));
+          
+          callback(user);
         }
-        callback(user);
       }, (err) => {
         console.error("Erro ao escutar perfil do usuário", err);
         const isSuperAdmin = user.email && user.email.trim().toLowerCase() === 'thiago.manso@orkestriaos.com.br';
