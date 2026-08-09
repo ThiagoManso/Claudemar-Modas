@@ -36,8 +36,8 @@ export function renderTeamView(container, users) {
     <div class="p-4 md:p-8 max-w-6xl mx-auto w-full">
       <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
-          <h1 class="text-2xl font-bold text-slate-800">Gestão de Equipe</h1>
-          <p class="text-slate-500 mt-1">Gerencie os acessos e gere links de captação de clientes para seus vendedores.</p>
+          <h1 class="text-2xl font-bold text-slate-800">Gerenciamento de Acessos</h1>
+          <p class="text-slate-500 mt-1">Gerencie as permissões dos usuários e libere os acessos ao sistema.</p>
         </div>
       </div>
 
@@ -62,7 +62,7 @@ export function renderTeamView(container, users) {
                   <td class="p-4">
                     <select onchange="handleUpdateRole('${user.id}', this.value)"
                       class="bg-surface border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-brand-500 focus:border-brand-500 block w-full p-2 ${user.role === 'pending' ? 'bg-amber-50 text-amber-700 font-semibold' : ''}">
-                      <option value="pending" ${user.role === 'pending' ? 'selected' : ''}>Aguardando Aprovação</option>
+                      <option value="pending" ${user.role === 'pending' ? 'selected' : ''}>Sem Permissão (Acesso Restrito)</option>
                       <option value="seller" ${user.role === 'seller' ? 'selected' : ''}>Vendedor</option>
                       <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Administrador</option>
                     </select>

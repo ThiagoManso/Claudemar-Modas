@@ -75,7 +75,7 @@ export function renderNavbar(currentView, user, onNavigate, onLogout) {
                 <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
                 <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
               </svg>
-              Equipe
+              Acessos
             </a>
             ` : ''}
           </nav>
@@ -154,7 +154,7 @@ export function renderNavbar(currentView, user, onNavigate, onLogout) {
             <div class="pt-4 pb-2 text-xs font-bold text-slate-400 uppercase tracking-wider">Gestão</div>
             <a href="#equipe" class="p-3 rounded-lg flex items-center gap-3 ${currentView === 'equipe' ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50'}">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-              Equipe
+              Acessos
             </a>
             ` : ''}
             
