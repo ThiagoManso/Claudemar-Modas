@@ -116,10 +116,6 @@ export function renderContactModal(contact, currentUser, onClose, onDelete) {
             Excluir
           </button>
         </div>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-            Excluir
-          </button>
-        </div>
       </div>
     </div>
   `;
@@ -272,7 +268,7 @@ async function renderClientDebtsList() {
   const htmls = await Promise.all(htmlPromises);
   container.innerHTML = htmls.join('');
 
-  totalEl.textContent = \`R$ \${totalPending.toFixed(2)}\`;
+  totalEl.textContent = `R$ ${totalPending.toFixed(2)}`;
   totalEl.className = totalPending > 0 
     ? "text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full"
     : "text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full";
