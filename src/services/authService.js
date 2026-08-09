@@ -50,13 +50,17 @@ export async function registerWithEmail(email, password, name) {
     
     const isSuperAdmin = email && email.trim().toLowerCase() === 'thiago.manso@orkestriaos.com.br';
     
-    // Criar perfil como pendente no Firestore (ou admin se for super admin)
-    await setDoc(doc(db, 'users', user.uid), {
-      name: name,
-      email: email,
-      role: isSuperAdmin ? 'admin' : 'pending', // Usuário aguarda aprovação
-      createdAt: new Date().toISOString()
-    });
+    try {
+      // Criar perfil como pendente no Firestore (ou admin se for super admin)
+      await setDoc(doc(db, 'users', user.uid), {
+        name: name,
+        email: email,
+        role: isSuperAdmin ? 'admin' : 'pending', // Usuário aguarda aprovação
+        createdAt: new Date().toISOString()
+      });
+    } catch (dbError) {
+      console.warn("Não foi possível criar o documento no Firestore de imediato devido às regras de segurança. O auto-heal tentará novamente.", dbError);
+    }
 
     return userCredential;
   } catch (error) {
