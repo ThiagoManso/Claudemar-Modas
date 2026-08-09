@@ -70,7 +70,9 @@ export function renderFinanceView(container, user, team) {
   });
 }
 
-function updateFinanceUI(user, team) {
+import { getPaymentsHistory } from '../services/financeService.js';
+
+async function updateFinanceUI(user, team) {
   const listContainer = document.getElementById('finance-list-container');
   const totalPendingEl = document.getElementById('finance-total-pending');
   const totalClientsEl = document.getElementById('finance-total-clients');
@@ -102,7 +104,7 @@ function updateFinanceUI(user, team) {
   let totalValue = 0;
   const uniqueClients = new Set();
 
-  listContainer.innerHTML = filteredDebts.map(debt => {
+  const htmlPromises = filteredDebts.map(async (debt) => {
     const remaining = debt.amountTotal - (debt.amountPaid || 0);
     totalValue += remaining;
     uniqueClients.add(debt.contactId);
@@ -121,47 +123,73 @@ function updateFinanceUI(user, team) {
       const owner = team.find(u => u.id === debt.ownerId);
       ownerName = owner ? (owner.name || owner.email.split('@')[0]) : debt.ownerId.substring(0, 8);
     }
+    
+    // Fetch payments from subcollection
+    const payments = await getPaymentsHistory(debt.id);
+    let paymentsHtml = '';
+    if (payments && payments.length > 0) {
+      paymentsHtml = `
+        <div class="mt-3 pt-3 border-t border-slate-100/50 space-y-1.5 w-full">
+          <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Histórico Imutável</div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            ${payments.map(p => {
+              const pDate = new Date(p.date || p.createdAt).toLocaleDateString('pt-BR');
+              return `<div class="flex justify-between items-center text-xs text-slate-600 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
+                <span class="font-medium">${pDate}</span>
+                <span class="font-bold text-emerald-600">+ R$ ${parseFloat(p.amount).toFixed(2)}</span>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    }
 
     return `
-      <div class="p-4 md:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50 transition-colors">
-        <div class="flex items-start gap-4">
-          <div class="w-10 h-10 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center font-bold flex-shrink-0">
-            ${(debt.contactName || '?').charAt(0).toUpperCase()}
+      <div class="p-4 md:p-5 flex flex-col items-start gap-4 hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+          <div class="flex items-start gap-4">
+            <div class="w-10 h-10 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center font-bold flex-shrink-0">
+              ${(debt.contactName || '?').charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <h4 class="font-semibold text-slate-800">${debt.contactName}</h4>
+              <div class="flex flex-wrap items-center gap-2 mt-1">
+                <span class="text-sm text-slate-500">Lançado em ${createdDate.toLocaleDateString('pt-BR')}</span>
+                <span class="px-2 py-0.5 rounded-full text-xs font-semibold ${badgeClass}">
+                  ${diffDays === 0 ? 'Hoje' : `${diffDays} dias atrás`}
+                </span>
+                ${ownerName ? `
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border bg-amber-50 text-amber-700 border-amber-200" title="Vendedor">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                  ${ownerName}
+                </span>
+                ` : ''}
+              </div>
+            </div>
           </div>
-          <div>
-            <h4 class="font-semibold text-slate-800">${debt.contactName}</h4>
-            <div class="flex flex-wrap items-center gap-2 mt-1">
-              <span class="text-sm text-slate-500">Lançado em ${createdDate.toLocaleDateString('pt-BR')}</span>
-              <span class="px-2 py-0.5 rounded-full text-xs font-semibold ${badgeClass}">
-                ${diffDays === 0 ? 'Hoje' : `${diffDays} dias atrás`}
-              </span>
-              ${ownerName ? `
-              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border bg-amber-50 text-amber-700 border-amber-200" title="Vendedor">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                ${ownerName}
-              </span>
-              ` : ''}
+          
+          <div class="flex flex-col md:items-end bg-slate-50 md:bg-transparent p-3 md:p-0 rounded-lg md:rounded-none">
+            <div class="text-sm text-slate-500 line-through">Total: R$ ${debt.amountTotal.toFixed(2)}</div>
+            <div class="text-lg font-bold text-slate-800">Resta: R$ ${remaining.toFixed(2)}</div>
+            
+            <div class="flex items-center gap-2 mt-2">
+              <button onclick="window.financePartialPayment('${debt.id}')" class="px-3 py-1.5 text-xs font-medium text-brand-700 bg-brand-50 hover:bg-brand-100 rounded-lg transition-colors">
+                Receber Parcial
+              </button>
+              <button onclick="window.financePayOff('${debt.id}')" class="px-3 py-1.5 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors flex items-center gap-1">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Quitar
+              </button>
             </div>
           </div>
         </div>
-        
-        <div class="flex flex-col md:items-end bg-slate-50 md:bg-transparent p-3 md:p-0 rounded-lg md:rounded-none">
-          <div class="text-sm text-slate-500 line-through">Total: R$ ${debt.amountTotal.toFixed(2)}</div>
-          <div class="text-lg font-bold text-slate-800">Resta: R$ ${remaining.toFixed(2)}</div>
-          
-          <div class="flex items-center gap-2 mt-2">
-            <button onclick="window.financePartialPayment('${debt.id}')" class="px-3 py-1.5 text-xs font-medium text-brand-700 bg-brand-50 hover:bg-brand-100 rounded-lg transition-colors">
-              Receber Parcial
-            </button>
-            <button onclick="window.financePayOff('${debt.id}')" class="px-3 py-1.5 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors flex items-center gap-1">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-              Quitar
-            </button>
-          </div>
-        </div>
+        ${paymentsHtml}
       </div>
     `;
-  }).join('');
+  });
+
+  const htmls = await Promise.all(htmlPromises);
+  listContainer.innerHTML = htmls.join('');
 
   totalPendingEl.textContent = `R$ ${totalValue.toFixed(2)}`;
   totalClientsEl.textContent = uniqueClients.size.toString();

@@ -3,32 +3,69 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
+    // Função para checar se o usuário é admin
     function isAdmin() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    function isOwner(resource) {
-      return resource.data.ownerId == request.auth.uid;
-    }
-
-    match /users/{userId} {
-      allow read: if request.auth != null;
-      // Usuários podem se registrar e criar seu próprio documento inicial (pending approval)
-      allow create: if request.auth != null && request.auth.uid == userId;
-      // Apenas admins podem mudar o role/aprovar, ou o próprio usuário alterar seu perfil básico
-      allow update: if request.auth != null && (isAdmin() || request.auth.uid == userId);
+    // Função para checar se o usuário é dono do documento
+    function isOwner(resourceData) {
+      return request.auth != null && resourceData.ownerId == request.auth.uid;
     }
     
-    match /contacts/{contactId} {
-      allow read, update, delete: if request.auth != null; // Simplificação inicial p/ demo, mas o ideal seria restrito
-      // Permitir escrita (Create) para qualquer usuário (Formulário Público externo)
-      allow create: if request.resource.data.keys().hasAll(['fullName', 'phone', 'address', 'createdAt'])
-                    && request.resource.data.fullName is string
-                    && request.resource.data.fullName.size() > 2;
+    // Função para checar se está criando para si mesmo
+    function isCreatingForSelf(requestData) {
+      return request.auth != null && requestData.ownerId == request.auth.uid;
     }
 
+    // 1. USERS COLLECTION
+    match /users/{userId} {
+      // Usuários só leem seu perfil, a menos que sejam admin
+      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      allow delete: if isAdmin();
+    }
+    
+    // 2. CONTACTS COLLECTION
+    match /contacts/{contactId} {
+      // Criação via form público (sem auth) ou por usuário logado
+      allow create: if request.resource.data.keys().hasAny(['name', 'fullName', 'phone', 'createdAt']);
+      // Leitura e modificação restrita
+      allow read, update, delete: if request.auth != null && (isOwner(resource.data) || isAdmin());
+    }
+
+    // 3. SALES COLLECTION (Dívidas/Consignados)
     match /sales/{saleId} {
-      allow read, write: if request.auth != null;
+      allow create: if request.auth != null && (isCreatingForSelf(request.resource.data) || isAdmin());
+      allow read, update: if request.auth != null && (isOwner(resource.data) || isAdmin());
+      allow delete: if isAdmin();
+      
+      // 3.1. PAYMENTS SUBCOLLECTION (Histórico Imutável)
+      match /payments/{paymentId} {
+        allow create: if request.auth != null && (
+          isAdmin() || 
+          get(/databases/$(database)/documents/sales/$(saleId)).data.ownerId == request.auth.uid
+        );
+        allow read: if request.auth != null && (
+          isAdmin() || 
+          get(/databases/$(database)/documents/sales/$(saleId)).data.ownerId == request.auth.uid
+        );
+        // NINGUÉM pode editar ou deletar pagamentos
+        allow update, delete: if false;
+      }
+    }
+    
+    // 4. PAYABLES COLLECTION (Despesas)
+    match /payables/{payableId} {
+      allow create: if request.auth != null && (isCreatingForSelf(request.resource.data) || isAdmin());
+      allow read, update, delete: if request.auth != null && (isOwner(resource.data) || isAdmin());
+    }
+    
+    // 5. PAYABLE CATEGORIES
+    match /payableCategories/{categoryId} {
+      allow read, create: if request.auth != null;
+      allow update, delete: if isAdmin();
     }
     
     match /{document=**} {

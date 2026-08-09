@@ -10,7 +10,7 @@ import {
   query, 
   where,
   orderBy,
-  arrayUnion
+  serverTimestamp
 } from 'firebase/firestore';
 
 const COLLECTION_NAME = 'sales';
@@ -29,12 +29,11 @@ export async function addDebt(contactId, contactName, amount, ownerId = null) {
     amountPaid: 0,
     status: 'pending',
     ownerId: ownerId,
-    createdAt: new Date().toISOString(),
-    payments: [] // Histórico opcional
+    createdAt: new Date().toISOString()
   };
 
   if (USE_DEMO_MODE) {
-    const newDoc = { id: Date.now().toString(), ...payload };
+    const newDoc = { id: Date.now().toString(), ...payload, payments: [] };
     demoSales.push(newDoc);
     return newDoc;
   }
@@ -45,12 +44,9 @@ export async function addDebt(contactId, contactName, amount, ownerId = null) {
 }
 
 /**
- * Registra um pagamento (parcial ou total)
+ * Registra um pagamento (parcial ou total) criando doc na subcoleção imutável
  */
 export async function registerPayment(debt, paymentAmount) {
-  const newAmountPaid = (debt.amountPaid || 0) + parseFloat(paymentAmount);
-  const isPaid = newAmountPaid >= debt.amountTotal;
-  
   const newPaid = (debt.amountPaid || 0) + parseFloat(paymentAmount);
   const status = newPaid >= debt.amountTotal ? 'paid' : 'pending';
   
@@ -71,14 +67,16 @@ export async function registerPayment(debt, paymentAmount) {
     return;
   }
 
-  const updates = {
-    amountPaid: newPaid,
-    status: status,
-    payments: arrayUnion(newPayment)
-  };
-
+  // Atualiza o total pago na raiz
   const debtRef = doc(db, COLLECTION_NAME, debt.id);
-  await updateDoc(debtRef, updates);
+  await updateDoc(debtRef, {
+    amountPaid: newPaid,
+    status: status
+  });
+
+  // Insere na subcoleção imutável para histórico auditável
+  const paymentsCol = collection(db, `${COLLECTION_NAME}/${debt.id}/payments`);
+  await addDoc(paymentsCol, { ...newPayment, createdAt: serverTimestamp() });
 }
 
 /**
@@ -86,27 +84,59 @@ export async function registerPayment(debt, paymentAmount) {
  */
 export async function payOffDebt(debt) {
   const remaining = debt.amountTotal - (debt.amountPaid || 0);
+  if (remaining <= 0) return;
   return registerPayment(debt, remaining);
+}
+
+/**
+ * Busca histórico de pagamentos auditável da subcoleção
+ */
+export async function getPaymentsHistory(debtId) {
+  if (USE_DEMO_MODE) {
+    const debt = demoSales.find(d => d.id === debtId);
+    return (debt && debt.payments) ? debt.payments : [];
+  }
+  
+  try {
+    const paymentsCol = collection(db, `${COLLECTION_NAME}/${debtId}/payments`);
+    const q = query(paymentsCol, orderBy('createdAt', 'desc'));
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (error) {
+    console.error("Erro ao buscar histórico:", error);
+    return [];
+  }
 }
 
 /**
  * Escuta dívidas de um cliente específico em tempo real
  */
-export function subscribeToClientDebts(contactId, callback) {
+export function subscribeToClientDebts(contactId, user, callback) {
   if (USE_DEMO_MODE) {
-    callback(demoSales.filter(d => d.contactId === contactId).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)));
+    let filtered = demoSales.filter(d => d.contactId === contactId);
+    if (user && user.role !== 'admin') {
+      filtered = filtered.filter(d => d.ownerId === user.uid);
+    }
+    callback(filtered.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)));
     return () => {};
   }
 
-  const q = query(
-    collection(db, COLLECTION_NAME),
-    where("contactId", "==", contactId)
-  );
+  let q;
+  if (user && user.role !== 'admin') {
+    q = query(
+      collection(db, COLLECTION_NAME),
+      where("contactId", "==", contactId),
+      where("ownerId", "==", user.uid)
+    );
+  } else {
+    q = query(
+      collection(db, COLLECTION_NAME),
+      where("contactId", "==", contactId)
+    );
+  }
 
   return onSnapshot(q, (snapshot) => {
     const debts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    // O Firestore as vezes exige criação de Índice composto se usarmos orderBy + where juntos.
-    // Para evitar que a tela quebre por falta de índice no Firebase do cliente, faremos a ordenação no JS.
     debts.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
     callback(debts);
   }, (error) => {
@@ -116,7 +146,7 @@ export function subscribeToClientDebts(contactId, callback) {
 }
 
 /**
- * Escuta todas as dívidas pendentes do sistema
+ * Escuta todas as dívidas pendentes do sistema (respeitando RBAC)
  */
 export function subscribeToPendingDebts(user, callback) {
   if (USE_DEMO_MODE) {

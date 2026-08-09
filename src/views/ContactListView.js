@@ -97,7 +97,7 @@ export function renderContactListView(container, contacts, currentUser, currentT
         const id = card.getAttribute('data-id');
         const contact = contacts.find(c => c.id === id);
         if (contact) {
-          renderContactModal(contact, null, onDeleteContact);
+          renderContactModal(contact, currentUser, null, onDeleteContact);
         }
       });
     });
@@ -114,7 +114,7 @@ export function renderContactListView(container, contacts, currentUser, currentT
         </div>
         
         <div class="flex flex-col sm:flex-row gap-3">
-          <button onclick="navigator.clipboard.writeText(window.location.origin + window.location.pathname + '#cadastro'); alert('Link copiado para o WhatsApp!');" class="px-4 py-2 bg-slate-100 text-slate-700 font-medium text-sm rounded-xl hover:bg-slate-200 transition-colors flex items-center justify-center gap-2 shadow-sm whitespace-nowrap">
+          <button onclick="navigator.clipboard.writeText(window.location.origin + window.location.pathname + '#cadastro?ref=${currentUser ? currentUser.uid : ''}'); alert('Link copiado para o WhatsApp!');" class="px-4 py-2 bg-slate-100 text-slate-700 font-medium text-sm rounded-xl hover:bg-slate-200 transition-colors flex items-center justify-center gap-2 shadow-sm whitespace-nowrap">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
             Copiar Link Cliente
           </button>

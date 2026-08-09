@@ -5,13 +5,13 @@
  */
 
 import { formatCEP } from '../services/contactService.js';
-import { addDebt, subscribeToClientDebts, payOffDebt, registerPayment } from '../services/financeService.js';
+import { addDebt, subscribeToClientDebts, payOffDebt, registerPayment, getPaymentsHistory } from '../services/financeService.js';
 import { showToast } from './Toast.js';
 
 let unsubscribeClientDebts = null;
 let currentClientDebts = [];
 
-export function renderContactModal(contact, onClose, onDelete) {
+export function renderContactModal(contact, currentUser, onClose, onDelete) {
   const isCliente = contact.type === 'cliente';
   const typeText = isCliente ? 'Cliente' : 'Fornecedor';
   const typeClass = isCliente 
@@ -150,7 +150,7 @@ export function renderContactModal(contact, onClose, onDelete) {
   // Finance Logic
   if (unsubscribeClientDebts) unsubscribeClientDebts();
   
-  unsubscribeClientDebts = subscribeToClientDebts(contact.id, (debts) => {
+  unsubscribeClientDebts = subscribeToClientDebts(contact.id, currentUser, (debts) => {
     currentClientDebts = debts;
     renderClientDebtsList();
   });
@@ -194,7 +194,7 @@ export function renderContactModal(contact, onClose, onDelete) {
   });
 }
 
-function renderClientDebtsList() {
+async function renderClientDebtsList() {
   const container = document.getElementById('client-debts-list');
   const totalEl = document.getElementById('client-total-debt');
   if (!container) return;
@@ -208,7 +208,7 @@ function renderClientDebtsList() {
     return;
   }
 
-  container.innerHTML = currentClientDebts.map(debt => {
+  const htmlPromises = currentClientDebts.map(async (debt) => {
     const remaining = debt.amountTotal - (debt.amountPaid || 0);
     if (debt.status === 'pending') {
       totalPending += remaining;
@@ -217,13 +217,14 @@ function renderClientDebtsList() {
     const diffDays = Math.floor(Math.abs(new Date() - new Date(debt.createdAt)) / (1000 * 60 * 60 * 24));
     
     // Histórico de pagamentos da dívida
+    const payments = await getPaymentsHistory(debt.id);
     let paymentsHtml = '';
-    if (debt.payments && debt.payments.length > 0) {
+    if (payments && payments.length > 0) {
       paymentsHtml = `
         <div class="mt-2 pt-2 border-t border-slate-100 space-y-1.5">
           <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Histórico de Pagamentos</div>
-          ${debt.payments.map(p => {
-            const pDate = new Date(p.date).toLocaleDateString('pt-BR');
+          ${payments.map(p => {
+            const pDate = new Date(p.date || p.createdAt).toLocaleDateString('pt-BR');
             return `<div class="flex justify-between text-xs text-slate-600 bg-slate-50 px-2 py-1 rounded">
               <span>${pDate}</span>
               <span class="font-medium text-emerald-600">+ R$ ${parseFloat(p.amount).toFixed(2)}</span>
@@ -266,9 +267,12 @@ function renderClientDebtsList() {
         ${paymentsHtml}
       </div>
     `;
-  }).join('');
+  });
 
-  totalEl.textContent = `R$ ${totalPending.toFixed(2)}`;
+  const htmls = await Promise.all(htmlPromises);
+  container.innerHTML = htmls.join('');
+
+  totalEl.textContent = \`R$ \${totalPending.toFixed(2)}\`;
   totalEl.className = totalPending > 0 
     ? "text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full"
     : "text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full";
