@@ -50,16 +50,29 @@ export async function registerWithEmail(email, password, name) {
     
     const isSuperAdmin = email && email.trim().toLowerCase() === 'thiago.manso@orkestriaos.com.br';
     
-    try {
-      // Criar perfil como pendente no Firestore (ou admin se for super admin)
-      await setDoc(doc(db, 'users', user.uid), {
-        name: name,
-        email: email,
-        role: isSuperAdmin ? 'admin' : 'pending', // Usuário aguarda aprovação
-        createdAt: new Date().toISOString()
-      });
-    } catch (dbError) {
-      console.warn("Não foi possível criar o documento no Firestore de imediato devido às regras de segurança. O auto-heal tentará novamente.", dbError);
+    let retries = 3;
+    let saved = false;
+    
+    while (retries > 0 && !saved) {
+      try {
+        // Criar perfil como pendente no Firestore (ou admin se for super admin)
+        await setDoc(doc(db, 'users', user.uid), {
+          name: name,
+          email: email,
+          role: isSuperAdmin ? 'admin' : 'pending', // Usuário aguarda aprovação
+          createdAt: new Date().toISOString()
+        });
+        saved = true;
+      } catch (dbError) {
+        console.warn(`Tentativa de salvar perfil falhou. Retentativas restantes: ${retries - 1}`, dbError);
+        retries--;
+        if (retries > 0) {
+          // Aguarda 1.5s antes de tentar de novo para dar tempo ao token propagar
+          await new Promise(r => setTimeout(r, 1500));
+        } else {
+          console.error("Não foi possível criar o documento no Firestore após várias tentativas.", dbError);
+        }
+      }
     }
 
     return userCredential;
@@ -94,15 +107,33 @@ export function onAuthChange(callback) {
     };
   }
 
-  return onAuthStateChanged(auth, (user) => {
+  return onAuthStateChanged(auth, async (user) => {
     if (userProfileUnsubscribe) {
       userProfileUnsubscribe();
       userProfileUnsubscribe = null;
     }
 
     if (user) {
+      const docRef = doc(db, 'users', user.uid);
+      const docSnap = await getDoc(docRef);
+
+      if (!docSnap.exists()) {
+        // Auto-heal: caso o documento não exista no Firestore (falha no cadastro), cria agora
+        try {
+          await setDoc(docRef, {
+            name: user.displayName || user.email.split('@')[0],
+            email: user.email,
+            role: 'pending',
+            createdAt: new Date().toISOString()
+          });
+          console.log("Auto-heal: Documento do usuário recuperado no Firestore.");
+        } catch (healError) {
+          console.warn("Auto-heal falhou. O usuário está apenas na Auth.", healError);
+        }
+      }
+
       // Escutar perfil para atualização de acesso em tempo real
-      userProfileUnsubscribe = onSnapshot(doc(db, 'users', user.uid), (userDoc) => {
+      userProfileUnsubscribe = onSnapshot(docRef, (userDoc) => {
         if (userDoc.exists()) {
           const data = userDoc.data();
           const isSuperAdmin = user.email && user.email.trim().toLowerCase() === 'thiago.manso@orkestriaos.com.br';
