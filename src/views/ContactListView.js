@@ -9,17 +9,20 @@ import { renderContactModal } from '../components/ContactModal.js';
 
 export function renderContactListView(container, contacts, currentUser, currentTeam, onDeleteContact) {
   let searchTerm = '';
+  let selectedSeller = 'all';
   
   const updateList = () => {
     const listContainer = document.getElementById('contacts-grid');
     if (!listContainer) return;
 
-    const filtered = contacts.filter(c => 
-      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.nickname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.phone.includes(searchTerm)
-    );
+    const filtered = contacts.filter(c => {
+      const matchSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          c.nickname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          c.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          c.phone.includes(searchTerm);
+      const matchSeller = selectedSeller === 'all' || c.ownerId === selectedSeller;
+      return matchSearch && matchSeller;
+    });
 
     if (filtered.length === 0) {
       listContainer.innerHTML = `
@@ -114,6 +117,12 @@ export function renderContactListView(container, contacts, currentUser, currentT
         </div>
         
         <div class="flex flex-col sm:flex-row gap-3">
+          ${currentUser && currentUser.role === 'admin' ? `
+            <select id="contact-seller-filter" class="w-full sm:w-auto px-4 py-2 bg-white border border-slate-200 text-slate-700 text-sm rounded-xl focus:ring-brand-500 focus:border-brand-500 shadow-sm outline-none">
+              <option value="all">Visão Geral (Todos)</option>
+              ${currentTeam.map(member => `<option value="${member.id}">${member.name || member.email.split('@')[0]}</option>`).join('')}
+            </select>
+          ` : ''}
           <button onclick="navigator.clipboard.writeText(window.location.origin + window.location.pathname + '#cadastro?ref=${currentUser ? currentUser.uid : ''}'); alert('Link copiado para o WhatsApp!');" class="px-4 py-2 bg-slate-100 text-slate-700 font-medium text-sm rounded-xl hover:bg-slate-200 transition-colors flex items-center justify-center gap-2 shadow-sm whitespace-nowrap">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
             Copiar Link Cliente
@@ -142,6 +151,14 @@ export function renderContactListView(container, contacts, currentUser, currentT
     searchTerm = e.target.value;
     updateList();
   });
+
+  const sellerFilterEl = document.getElementById('contact-seller-filter');
+  if (sellerFilterEl) {
+    sellerFilterEl.addEventListener('change', (e) => {
+      selectedSeller = e.target.value;
+      updateList();
+    });
+  }
 
   updateList();
 }

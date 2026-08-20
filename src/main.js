@@ -162,7 +162,8 @@ function renderCurrentView() {
           // onAuthStateChanged will soon sync the true role.
           if (!currentUser) {
              currentUser = result.user;
-             currentUser.role = (currentUser.email && currentUser.email.toLowerCase().includes('thiago.manso')) ? 'admin' : 'admin'; // fallback temporarily to admin to allow load
+             const adminEmails = ['s.antunes.souza@icloud.com', 'manunesneto@bol.com.br', 'thiago.manso@orkestriaos.com.br'];
+             currentUser.role = (currentUser.email && adminEmails.includes(currentUser.email.trim().toLowerCase())) ? 'admin' : 'pending'; // fallback temporarily
           }
           currentView = currentUser.role === 'pending' ? 'pendente' : 'admin';
           window.location.hash = `#${currentView}`;
@@ -198,7 +199,7 @@ function renderCurrentView() {
   }
 
   if (currentView === 'despesas') {
-    renderPayablesView(viewContainer, currentUser);
+    renderPayablesView(viewContainer, currentUser, currentTeam);
     return;
   } else {
     destroyPayablesView();

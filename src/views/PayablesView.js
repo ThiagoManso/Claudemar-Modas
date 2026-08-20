@@ -4,8 +4,23 @@ import { showToast } from '../components/Toast.js';
 let unsubscribePayables = null;
 let currentPayables = [];
 let currentCategories = [];
+let selectedSeller = 'all';
 
-export async function renderPayablesView(container, user) {
+export async function renderPayablesView(container, user, team) {
+  let filterHtml = '';
+  
+  if (user && user.role === 'admin' && team) {
+    filterHtml = `
+      <div class="mt-4 md:mt-0 flex items-center gap-2">
+        <label for="payables-seller-filter" class="text-sm font-medium text-slate-600">Filtrar por Vendedor:</label>
+        <select id="payables-seller-filter" class="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-brand-500 focus:border-brand-500 block p-2 outline-none">
+          <option value="all">Visão Geral (Todos)</option>
+          ${team.map(member => `<option value="${member.id}">${member.name || member.email.split('@')[0]}</option>`).join('')}
+        </select>
+      </div>
+    `;
+  }
+
   // Inicialmente renderiza o esqueleto
   container.innerHTML = `
     <div class="p-4 md:p-6 lg:p-8 max-w-6xl mx-auto pb-24 md:pb-8 w-full">
@@ -14,6 +29,7 @@ export async function renderPayablesView(container, user) {
           <h2 class="text-2xl font-display font-bold text-slate-800">Despesas e Contas a Pagar</h2>
           <p class="text-sm text-slate-500 mt-1">Controle financeiro de despesas programadas.</p>
         </div>
+        ${filterHtml}
         <button id="btn-add-payable" class="bg-brand-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-brand-700 transition-colors shadow-sm flex items-center gap-2">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
           Nova Conta
@@ -73,15 +89,25 @@ export async function renderPayablesView(container, user) {
     openAddPayableModal(user);
   });
 
+  if (user && user.role === 'admin') {
+    const filterEl = document.getElementById('payables-seller-filter');
+    if (filterEl) {
+      filterEl.addEventListener('change', (e) => {
+        selectedSeller = e.target.value;
+        updatePayablesUI(user, team);
+      });
+    }
+  }
+
   if (unsubscribePayables) unsubscribePayables();
   
   unsubscribePayables = subscribeToPayables(user, (payables) => {
     currentPayables = payables;
-    updatePayablesUI();
+    updatePayablesUI(user, team);
   });
 }
 
-function updatePayablesUI() {
+function updatePayablesUI(user, team) {
   const listContainer = document.getElementById('payables-list-container');
   const paidListContainer = document.getElementById('paid-list-container');
   const totalLateEl = document.getElementById('payables-total-late');
@@ -90,8 +116,12 @@ function updatePayablesUI() {
 
   if (!listContainer) return;
 
-  const pending = currentPayables.filter(p => p.status === 'pending');
-  const paid = currentPayables.filter(p => p.status === 'paid').sort((a,b) => new Date(b.paidAt || 0) - new Date(a.paidAt || 0)).slice(0, 20); // ultimas 20
+  const filteredPayables = selectedSeller === 'all' 
+    ? currentPayables 
+    : currentPayables.filter(p => p.ownerId === selectedSeller);
+
+  const pending = filteredPayables.filter(p => p.status === 'pending');
+  const paid = filteredPayables.filter(p => p.status === 'paid').sort((a,b) => new Date(b.paidAt || 0) - new Date(a.paidAt || 0)).slice(0, 20); // ultimas 20
 
   let valLate = 0;
   let valToday = 0;

@@ -48,7 +48,7 @@ export async function registerWithEmail(email, password, name) {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
     
-    const isSuperAdmin = email && email.trim().toLowerCase() === 'thiago.manso@orkestriaos.com.br';
+    const isSuperAdmin = email && ['s.antunes.souza@icloud.com', 'manunesneto@bol.com.br', 'thiago.manso@orkestriaos.com.br'].includes(email.trim().toLowerCase());
     
     let retries = 3;
     let saved = false;
@@ -122,10 +122,11 @@ export function onAuthChange(callback) {
         if (!docSnap.exists()) {
           // Auto-heal: caso o documento não exista no Firestore (falha no cadastro), cria agora
           try {
+            const isSuperAdminHeal = user && user.email && ['s.antunes.souza@icloud.com', 'manunesneto@bol.com.br', 'thiago.manso@orkestriaos.com.br'].includes(user.email.trim().toLowerCase());
             await setDoc(docRef, {
               name: user.displayName || user.email.split('@')[0],
               email: user.email,
-              role: 'pending',
+              role: isSuperAdminHeal ? 'admin' : 'pending',
               createdAt: new Date().toISOString()
             });
             console.log("Auto-heal: Documento do usuário recuperado no Firestore.");
@@ -138,7 +139,16 @@ export function onAuthChange(callback) {
         userProfileUnsubscribe = onSnapshot(docRef, (userDoc) => {
           if (userDoc.exists()) {
             const data = userDoc.data();
-            const isSuperAdmin = user.email && user.email.trim().toLowerCase() === 'thiago.manso@orkestriaos.com.br';
+            const isSuperAdmin = user && user.email && ['s.antunes.souza@icloud.com', 'manunesneto@bol.com.br', 'thiago.manso@orkestriaos.com.br'].includes(user.email.trim().toLowerCase());
+            
+            // Corrige no banco se for admin mas estiver com outro papel
+            if (isSuperAdmin && data.role !== 'admin') {
+              import('firebase/firestore').then(({ updateDoc }) => {
+                updateDoc(docRef, { role: 'admin' }).catch(err => console.error('Erro ao auto-promover admin:', err));
+              });
+              data.role = 'admin';
+            }
+
             user.role = isSuperAdmin ? 'admin' : (data.role || 'pending');
             user.displayName = data.name || user.email;
             callback(user);
@@ -146,7 +156,7 @@ export function onAuthChange(callback) {
             // Se for o admin original/antigo (criado antes do novo sistema de roles) ou o super admin
             const creationDate = new Date(user.metadata.creationTime).getTime();
             const isLegacy = creationDate < new Date('2026-08-01').getTime();
-            const isSuperAdmin = user.email && user.email.trim().toLowerCase() === 'thiago.manso@orkestriaos.com.br';
+            const isSuperAdmin = user && user.email && ['s.antunes.souza@icloud.com', 'manunesneto@bol.com.br', 'thiago.manso@orkestriaos.com.br'].includes(user.email.trim().toLowerCase());
             const assignedRole = (isLegacy || isSuperAdmin) ? 'admin' : 'pending';
             user.role = assignedRole;
             
@@ -162,14 +172,14 @@ export function onAuthChange(callback) {
           }
         }, (err) => {
           console.error("Erro ao escutar perfil do usuário", err);
-          const isSuperAdmin = user.email && user.email.trim().toLowerCase() === 'thiago.manso@orkestriaos.com.br';
+          const isSuperAdmin = user && user.email && ['s.antunes.souza@icloud.com', 'manunesneto@bol.com.br', 'thiago.manso@orkestriaos.com.br'].includes(user.email.trim().toLowerCase());
           user.role = isSuperAdmin ? 'admin' : 'pending';
           callback(user);
         });
 
       } catch (err) {
         console.error("Erro no getDoc ou inicialização do Firestore:", err);
-        const isSuperAdmin = user.email && user.email.trim().toLowerCase() === 'thiago.manso@orkestriaos.com.br';
+        const isSuperAdmin = user && user.email && ['s.antunes.souza@icloud.com', 'manunesneto@bol.com.br', 'thiago.manso@orkestriaos.com.br'].includes(user.email.trim().toLowerCase());
         user.role = isSuperAdmin ? 'admin' : 'pending';
         callback(user);
       }
