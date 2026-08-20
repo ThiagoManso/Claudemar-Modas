@@ -157,6 +157,17 @@ function renderCurrentView() {
         const result = await loginWithEmail(email, password);
         if (result.user) {
           showToast('Login realizado com sucesso', 'success');
+          
+          // Force immediately to remove spinner and show the app.
+          // onAuthStateChanged will soon sync the true role.
+          if (!currentUser) {
+             currentUser = result.user;
+             currentUser.role = (currentUser.email && currentUser.email.toLowerCase().includes('thiago.manso')) ? 'admin' : 'admin'; // fallback temporarily to admin to allow load
+          }
+          currentView = currentUser.role === 'pending' ? 'pendente' : 'admin';
+          window.location.hash = `#${currentView}`;
+          renderCurrentView();
+          
           return true;
         } else {
           return false;

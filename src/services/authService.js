@@ -115,55 +115,64 @@ export function onAuthChange(callback) {
 
     if (user) {
       const docRef = doc(db, 'users', user.uid);
-      const docSnap = await getDoc(docRef);
+      
+      try {
+        const docSnap = await getDoc(docRef);
 
-      if (!docSnap.exists()) {
-        // Auto-heal: caso o documento não exista no Firestore (falha no cadastro), cria agora
-        try {
-          await setDoc(docRef, {
-            name: user.displayName || user.email.split('@')[0],
-            email: user.email,
-            role: 'pending',
-            createdAt: new Date().toISOString()
-          });
-          console.log("Auto-heal: Documento do usuário recuperado no Firestore.");
-        } catch (healError) {
-          console.warn("Auto-heal falhou. O usuário está apenas na Auth.", healError);
+        if (!docSnap.exists()) {
+          // Auto-heal: caso o documento não exista no Firestore (falha no cadastro), cria agora
+          try {
+            await setDoc(docRef, {
+              name: user.displayName || user.email.split('@')[0],
+              email: user.email,
+              role: 'pending',
+              createdAt: new Date().toISOString()
+            });
+            console.log("Auto-heal: Documento do usuário recuperado no Firestore.");
+          } catch (healError) {
+            console.warn("Auto-heal falhou. O usuário está apenas na Auth.", healError);
+          }
         }
-      }
 
-      // Escutar perfil para atualização de acesso em tempo real
-      userProfileUnsubscribe = onSnapshot(docRef, (userDoc) => {
-        if (userDoc.exists()) {
-          const data = userDoc.data();
+        // Escutar perfil para atualização de acesso em tempo real
+        userProfileUnsubscribe = onSnapshot(docRef, (userDoc) => {
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            const isSuperAdmin = user.email && user.email.trim().toLowerCase() === 'thiago.manso@orkestriaos.com.br';
+            user.role = isSuperAdmin ? 'admin' : (data.role || 'pending');
+            user.displayName = data.name || user.email;
+            callback(user);
+          } else {
+            // Se for o admin original/antigo (criado antes do novo sistema de roles) ou o super admin
+            const creationDate = new Date(user.metadata.creationTime).getTime();
+            const isLegacy = creationDate < new Date('2026-08-01').getTime();
+            const isSuperAdmin = user.email && user.email.trim().toLowerCase() === 'thiago.manso@orkestriaos.com.br';
+            const assignedRole = (isLegacy || isSuperAdmin) ? 'admin' : 'pending';
+            user.role = assignedRole;
+            
+            // Auto-criar o documento faltante para que ele apareça na Gestão de Equipe
+            setDoc(doc(db, 'users', user.uid), {
+              name: user.displayName || user.email,
+              email: user.email,
+              role: assignedRole,
+              createdAt: new Date().toISOString()
+            }).catch(err => console.error("Erro ao auto-criar documento do usuário:", err));
+            
+            callback(user);
+          }
+        }, (err) => {
+          console.error("Erro ao escutar perfil do usuário", err);
           const isSuperAdmin = user.email && user.email.trim().toLowerCase() === 'thiago.manso@orkestriaos.com.br';
-          user.role = isSuperAdmin ? 'admin' : (data.role || 'pending');
-          user.displayName = data.name || user.email;
+          user.role = isSuperAdmin ? 'admin' : 'pending';
           callback(user);
-        } else {
-          // Se for o admin original/antigo (criado antes do novo sistema de roles) ou o super admin
-          const creationDate = new Date(user.metadata.creationTime).getTime();
-          const isLegacy = creationDate < new Date('2026-08-01').getTime();
-          const isSuperAdmin = user.email && user.email.trim().toLowerCase() === 'thiago.manso@orkestriaos.com.br';
-          const assignedRole = (isLegacy || isSuperAdmin) ? 'admin' : 'pending';
-          user.role = assignedRole;
-          
-          // Auto-criar o documento faltante para que ele apareça na Gestão de Equipe
-          setDoc(doc(db, 'users', user.uid), {
-            name: user.displayName || user.email,
-            email: user.email,
-            role: assignedRole,
-            createdAt: new Date().toISOString()
-          }).catch(err => console.error("Erro ao auto-criar documento do usuário:", err));
-          
-          callback(user);
-        }
-      }, (err) => {
-        console.error("Erro ao escutar perfil do usuário", err);
+        });
+
+      } catch (err) {
+        console.error("Erro no getDoc ou inicialização do Firestore:", err);
         const isSuperAdmin = user.email && user.email.trim().toLowerCase() === 'thiago.manso@orkestriaos.com.br';
         user.role = isSuperAdmin ? 'admin' : 'pending';
         callback(user);
-      });
+      }
     } else {
       callback(null);
     }
