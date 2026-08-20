@@ -153,11 +153,16 @@ function renderCurrentView() {
 
   if (currentView === 'login' || !currentUser) {
     renderLoginView(viewContainer, async (email, password) => {
-      const result = await loginWithEmail(email, password);
-      if (result.user) {
-        showToast('Login realizado com sucesso', 'success');
-        return true;
-      } else {
+      try {
+        const result = await loginWithEmail(email, password);
+        if (result.user) {
+          showToast('Login realizado com sucesso', 'success');
+          return true;
+        } else {
+          return false;
+        }
+      } catch (error) {
+        showToast('Erro ao realizar login', 'error');
         return false;
       }
     });
@@ -221,4 +226,8 @@ function navigateTo(view) {
   window.location.hash = `#${view}`;
 }
 
-document.addEventListener('DOMContentLoaded', initApp);
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}

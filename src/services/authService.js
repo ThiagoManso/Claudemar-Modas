@@ -6,7 +6,7 @@
 
 import { auth, db, USE_DEMO_MODE } from '../config/firebase.js';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
-import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, getDoc, onSnapshot } from 'firebase/firestore';
 
 // Estado em Modo Demo
 let demoUser = null;
@@ -139,6 +139,7 @@ export function onAuthChange(callback) {
           const isSuperAdmin = user.email && user.email.trim().toLowerCase() === 'thiago.manso@orkestriaos.com.br';
           user.role = isSuperAdmin ? 'admin' : (data.role || 'pending');
           user.displayName = data.name || user.email;
+          callback(user);
         } else {
           // Se for o admin original/antigo (criado antes do novo sistema de roles) ou o super admin
           const creationDate = new Date(user.metadata.creationTime).getTime();

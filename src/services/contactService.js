@@ -4,7 +4,7 @@
  * ============================================================================
  */
 
-import { db, USE_DEMO_MODE } from '../config/firebase.js';
+import { db, USE_DEMO_MODE, GOOGLE_MAPS_API_KEY } from '../config/firebase.js';
 import { 
   collection, 
   addDoc, 

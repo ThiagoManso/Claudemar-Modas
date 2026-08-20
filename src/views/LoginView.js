@@ -131,9 +131,15 @@ export function renderLoginView(container, onLogin) {
     const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
     
-    const success = await onLogin(email, password);
-    
-    if (!success) {
+    try {
+      const success = await onLogin(email, password);
+      
+      if (!success) {
+        errorBox.classList.remove('hidden');
+        btnSubmitLogin.innerHTML = originalContent;
+        btnSubmitLogin.disabled = false;
+      }
+    } catch (err) {
       errorBox.classList.remove('hidden');
       btnSubmitLogin.innerHTML = originalContent;
       btnSubmitLogin.disabled = false;
